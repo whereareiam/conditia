@@ -1,0 +1,58 @@
+name: Bug report
+description: Something in Conditia does not work as documented.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask on [Discord](https://discord.arcadeya.com) for help with using Conditia in a host. Report vulnerabilities privately through the [security policy](https://github.com/whereareiam/conditia/security/policy).
+
+  - type: input
+    id: version
+    attributes:
+      label: Conditia version
+      description: The version of the `me.whereareiam.conditia` artifacts, for example `0.1.0` or `dev-1a2b3c4`.
+    validations:
+      required: true
+
+  - type: input
+    id: host
+    attributes:
+      label: Host and version
+      description: The plugin, mod or application that checks conditions through Conditia.
+      placeholder: Arbor 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Give a place the parts `sender` and `recipient`
+        2. Write `requires: [recipient: [permission: chat.receive]]`
+        3. Check it ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The host's log of the problem, including the stack traces Conditia logged.
+      render: text
+
+  - type: textarea
+    id: descriptor
+    attributes:
+      label: Configuration
+      description: The `requires:` lists involved.
+      render: yaml

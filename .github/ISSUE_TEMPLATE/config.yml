@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help with using Conditia
+    url: https://discord.arcadeya.com
+    about: Ask on Discord about using Conditia in a host or writing a condition type.
+  - name: Security vulnerability
+    url: https://github.com/whereareiam/conditia/security/policy
+    about: Report vulnerabilities privately, never in a public issue.

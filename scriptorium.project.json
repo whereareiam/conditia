@@ -1,0 +1,58 @@
+{
+  "name": "Conditia",
+  "description": "Typed requirements in config files for JVM hosts such as Discord bots and Minecraft plugins.",
+  "state": {
+    "bundling": {
+      "captions": [
+        "Asking the recipient, not the sender.",
+        "Binding every part before anyone asks.",
+        "Checking the list until something says no.",
+        "Closing scopes nobody misses."
+      ]
+    }
+  },
+  "urls": {
+    "github": "https://github.com/whereareiam/conditia"
+  },
+  "links": [
+    {
+      "type": "icon",
+      "label": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/whereareiam/conditia",
+      "external": true
+    },
+    {
+      "type": "icon",
+      "label": "Discord",
+      "icon": "discord",
+      "url": "https://discord.arcadeya.com",
+      "external": true
+    }
+  ],
+  "i18n": {
+    "default": "en",
+    "languages": {
+      "en": { "label": "English" }
+    }
+  },
+  "versions": {
+    "home": "dev",
+    "include": [
+      { "type": "branch", "pattern": "release/*" },
+      { "type": "tag", "pattern": "*" }
+    ],
+    "meta": {
+      "dev": {
+        "label": "Development",
+        "theme": {
+          "primary": "hsl(160 84% 42%)",
+          "primaryForeground": "hsl(0 0% 7%)",
+          "ring": "hsl(160 84% 42%)",
+          "accent": "hsla(160 84% 42% / 0.14)",
+          "accentForeground": "hsl(160 84% 86%)"
+        }
+      }
+    }
+  }
+}
