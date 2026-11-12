@@ -18,7 +18,7 @@ When changing behavior:
 ### Module Map
 
 - `conditia-api`
-  The contracts types and hosts compile against: `ConditionType` (`Plain`, `Single`, `Pair`, answering at once, and the same under `Deferred`, answering later), `Conditions`, `ConditionRegistrar`, `ConditionScope`, `Place`, `DeferredPlace`, `SettingsReader`; `model` (`Part`, `Situation`, `Requirements`, `Node`, `NoSettings`, `Names`); `result` (`Outcome`, `Reason`, `Verdict`); `exception` (`ConditionException`).
+  The contracts types and hosts compile against: `ConditionType` (`Plain`, `Single`, `Pair`, answering at once, and the same under `Deferred`, answering later), `Conditions`, `ConditionRegistrar`, `ConditionScope`, `Place`, `DeferredPlace`, `SettingsReader`; `model` (`Part`, `Situation`, `Requirements`, `Node`, `NoSettings`, `Names`, `Wording`); `result` (`Outcome`, `Reason`, `Verdict`); `exception` (`ConditionException`).
 - `conditia-common`
   `DefaultConditions` is the door: it implements `Conditions`, serialises every change and binds all places again after it; `ConditionsOptions` is what a host tells it. Packages: `registration` (`Registrations`: types and named lists by owner), `binding` (`Binder`, `TestBinding`, `PartChoice`, `Focus`, `Check`: the startup checks and the bound tree), `evaluation` (`Evaluation`: running a check in order, at once or as a stage), `place` (`Places`, `BoundPlace`, `DefaultPlace`, `DefaultDeferredPlace`), `type` (`TimeCondition`, `DateCondition`, `ChanceCondition`).
 - `conditia-adapter-configura`

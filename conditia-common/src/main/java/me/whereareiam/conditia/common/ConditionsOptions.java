@@ -3,10 +3,13 @@ package me.whereareiam.conditia.common;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.Singular;
 import me.whereareiam.conditia.SettingsReader;
+import me.whereareiam.conditia.model.Wording;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Optional;
 import java.util.random.RandomGenerator;
 
@@ -17,6 +20,7 @@ import java.util.random.RandomGenerator;
  * ConditionsOptions options = ConditionsOptions.builder()
  *         .reader(feature.settings())
  *         .namedLists(Optional.of("audience"))
+ *         .wording(Wording.onFailure("denied"))
  *         .build();
  * }</pre>
  */
@@ -34,6 +38,12 @@ public final class ConditionsOptions {
 	 */
 	@Builder.Default
 	private final @NotNull Optional<String> namedLists = Optional.empty();
+
+	/**
+	 * The words a condition's line may carry a text under, such as {@code denied}; none by default.
+	 */
+	@Singular("wording")
+	private final @NotNull List<Wording> wordings;
 
 	/**
 	 * Where places that can no longer be bound are logged.

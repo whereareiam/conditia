@@ -14,6 +14,7 @@ import me.whereareiam.conditia.common.type.TimeCondition;
 import me.whereareiam.conditia.model.Names;
 import me.whereareiam.conditia.model.Part;
 import me.whereareiam.conditia.model.Requirements;
+import me.whereareiam.conditia.model.Wording;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Conditia's standard {@link Conditions}. It knows {@code time}, {@code date} and {@code chance} from the start;
@@ -34,7 +36,7 @@ import java.util.function.Supplier;
  */
 public final class DefaultConditions implements Conditions {
 	private final ConditionsOptions options;
-	private final Registrations registrations = new Registrations();
+	private final Registrations registrations;
 	private final Places places;
 	private final OwnedRegistrar host;
 	private final Set<String> owners = new HashSet<>();
@@ -46,6 +48,7 @@ public final class DefaultConditions implements Conditions {
 	 */
 	public DefaultConditions(@NotNull ConditionsOptions options) {
 		this.options = options;
+		this.registrations = new Registrations(words(options));
 		this.places = new Places(options.getLogger());
 		this.host = new OwnedRegistrar(Optional.empty(), this);
 
@@ -110,6 +113,10 @@ public final class DefaultConditions implements Conditions {
 	}
 
 	private Binder binder() {
-		return new Binder(registrations.snapshot(), options.getNamedLists(), options.getReader());
+		return new Binder(registrations.snapshot(), options.getNamedLists(), words(options), options.getReader());
+	}
+
+	private static Set<String> words(ConditionsOptions options) {
+		return options.getWordings().stream().map(Wording::getWord).collect(Collectors.toUnmodifiableSet());
 	}
 }

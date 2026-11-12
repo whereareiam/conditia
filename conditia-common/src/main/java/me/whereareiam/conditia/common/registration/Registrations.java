@@ -5,6 +5,7 @@ import me.whereareiam.conditia.model.Names;
 import me.whereareiam.conditia.model.Requirements;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -15,9 +16,24 @@ import java.util.Set;
  * owner's carry its prefix.
  */
 public final class Registrations {
-	private static final Set<String> RESERVED = Set.of("any", "not", "of");
+	/**
+	 * The words of a condition's line that are Conditia's own: combinations and the parts a condition is about.
+	 */
+	public static final Set<String> RESERVED = Set.of("any", "not", "of");
 
+	private final Set<String> reserved;
 	private final Map<String, Entry<ConditionType<?>>> types = new LinkedHashMap<>();
+
+	/**
+	 * Creates the registrations of a host.
+	 *
+	 * @param words the host's words a line may carry a text under, which no type may take
+	 */
+	public Registrations(@NotNull Set<String> words) {
+		Set<String> all = new HashSet<>(RESERVED);
+		all.addAll(words);
+		this.reserved = Set.copyOf(all);
+	}
 	private final Map<String, Entry<Requirements>> lists = new LinkedHashMap<>();
 
 	/**
@@ -29,7 +45,7 @@ public final class Registrations {
 	 */
 	public synchronized @NotNull String type(@NotNull Optional<String> owner, @NotNull ConditionType<?> type) {
 		String name = name(owner, type.name());
-		if (RESERVED.contains(name)) throw new IllegalArgumentException("`" + name + "` is a word of Conditia's own");
+		if (reserved.contains(name)) throw new IllegalArgumentException("`" + name + "` is a word of Conditia's or of the host's own");
 		if (types.containsKey(name)) throw new IllegalStateException("A type named " + name + " is registered already");
 
 		types.put(name, new Entry<>(owner, type));

@@ -3,7 +3,9 @@ package me.whereareiam.conditia.result;
 import me.whereareiam.conditia.model.Part;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -41,13 +43,57 @@ public sealed interface Verdict permits Verdict.Passed, Verdict.Failed, Verdict.
 	 * @param parts     the parts of the place the condition was about, in the place's order; empty for a condition
 	 *                  about no part
 	 * @param reason    why it failed, or inside a {@code not} why it held, when its type said
+	 * @param wording   the texts of the host's words for this failure, by word: each the text of the condition's
+	 *                  line, or of the nearest line around it that has one
 	 */
-	record Failed(@NotNull String path, @NotNull String condition, @NotNull List<Part<?>> parts, @NotNull Optional<Reason> reason) implements Verdict {
+	record Failed(
+			@NotNull String path,
+			@NotNull String condition,
+			@NotNull List<Part<?>> parts,
+			@NotNull Optional<Reason> reason,
+			@NotNull Map<String, String> wording
+	) implements Verdict {
 		/**
 		 * Creates a verdict of a failed condition.
 		 */
 		public Failed {
 			parts = List.copyOf(parts);
+			wording = Map.copyOf(wording);
+		}
+
+		/**
+		 * Creates a verdict of a failed condition whose lines carry no texts.
+		 *
+		 * @param path      the condition's path
+		 * @param condition what the condition's line names
+		 * @param parts     the parts of the place the condition was about
+		 * @param reason    why it failed, when its type said
+		 */
+		public Failed(@NotNull String path, @NotNull String condition, @NotNull List<Part<?>> parts, @NotNull Optional<Reason> reason) {
+			this(path, condition, parts, reason, Map.of());
+		}
+
+		/**
+		 * The text of one of the host's words for this failure.
+		 *
+		 * @param word the word, such as {@code denied}
+		 * @return the text, empty when no line around the condition has one
+		 */
+		public @NotNull Optional<String> wording(@NotNull String word) {
+			return Optional.ofNullable(wording.get(word));
+		}
+
+		/**
+		 * The same failure, with the texts of a line around it for the words it has no text for yet.
+		 *
+		 * @param texts the line's texts by word
+		 * @return the failure with those texts
+		 */
+		public @NotNull Failed orWording(@NotNull Map<String, String> texts) {
+			Map<String, String> merged = new HashMap<>(texts);
+			merged.putAll(wording);
+
+			return new Failed(path, condition, parts, reason, merged);
 		}
 
 		/**

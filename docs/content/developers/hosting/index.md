@@ -23,7 +23,7 @@ A check gives a sealed `Verdict` and never throws or completes exceptionally:
 | Verdict | Means |
 | --- | --- |
 | `Passed` | every condition held |
-| `Failed(path, condition, parts, reason)` | the first condition that did not hold, with the parts of the place it was about; a failed `not` reports the condition inside it that held, with the reason it held for, and a failed `any` reports itself without a reason |
+| `Failed(path, condition, parts, reason, wording)` | the first condition that did not hold, with the parts of the place it was about and the texts its lines carry under the host's words; a failed `not` reports the condition inside it that held, with the reason it held for, and a failed `any` reports itself without a reason |
 | `Broken(path, condition, error)` | a type threw, or the place cannot be bound since something it names was removed |
 
 `failed.key()` gives the key of the reason's texts, and `failed.reason().get().values()` its placeholder values. Without a reason, show the place's own text, such as a command's `denied`.
@@ -36,6 +36,32 @@ if (verdict instanceof Verdict.Failed failed) {
     deny(sender, failed.key().map(wording::get).orElse(texts.denied()), failed);
 }
 ```
+
+## Texts on lines
+
+A host can let a line carry texts under words it declares, such as what a player is told when the line denies and how to meet it. Conditia reserves the words, so no type or part takes them, and reports each word's text with a failure:
+
+```java
+Conditions conditions = new DefaultConditions(ConditionsOptions.builder()
+        .reader(reader)
+        .wording(Wording.onFailure("denied"))
+        .wording(Wording.onFailure("hint"))
+        .build());
+```
+
+```yaml
+requires:
+  - permission: chat.staff
+    denied: "Only staff can write here."
+  - recipient:
+      - permission: chat.receive
+    denied: "{recipient} does not receive this chat."
+    hint: "Write to someone else."
+```
+
+- `failed.wording("denied")` is the text of the failed condition's line, or of the nearest line around it that has one; each word is looked up on its own, so an inner line's `denied` and an outer line's `hint` are both reported.
+- The text of a line inside a `not` is not reported when the `not` fails, since the line held.
+- A word's value is a text; what it means, such as a reference to a phrase in the host's files, is the host's. `place.wording()` lists every text by its path (`chat.requires[1].hint`), so a host can check at startup what they refer to.
 
 ## Named lists
 

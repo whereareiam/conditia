@@ -11,6 +11,7 @@ import me.whereareiam.conditia.result.Verdict;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.SequencedMap;
 import java.util.function.Function;
 
 /**
@@ -29,6 +30,11 @@ final class DefaultPlace extends BoundPlace implements Place {
 	@Override
 	public @NotNull Verdict check(@NotNull Situation situation) {
 		return check(situation, check -> Evaluation.now(check, situation), Function.identity());
+	}
+
+	@Override
+	public @NotNull SequencedMap<String, String> wording() {
+		return super.wording();
 	}
 
 	@Override
