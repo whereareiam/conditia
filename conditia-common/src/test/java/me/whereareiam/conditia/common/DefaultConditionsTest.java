@@ -90,8 +90,51 @@ class DefaultConditionsTest {
 	}
 
 	@Test
-	void not_ReportsItself() {
-		assertFailed("chat.requires[0].not", "not", check("- not: { permission: chat.global }"));
+	void not_ReportsTheConditionInside_WithTheReasonItHeldFor() {
+		Verdict.Failed failed = assertFailed("chat.requires[0].not.permission", "permission", check("- not: { permission: chat.global }"));
+
+		assertEquals(Optional.of("permission.held"), failed.key());
+		assertEquals(Map.of("nodes", "chat.global"), failed.reason().orElseThrow().values());
+		assertEquals(List.of(Chat.SENDER), failed.parts());
+	}
+
+	@Test
+	void not_OfSeveralConditionsThatHeld_ReportsItself() {
+		Verdict.Failed failed = assertFailed("chat.requires[0].not", "not", check("- not: [permission: chat.global, nearby: 50]"));
+
+		assertTrue(failed.reason().isEmpty());
+		assertEquals(List.of(Chat.SENDER, Chat.RECIPIENT), failed.parts());
+	}
+
+	@Test
+	void not_OfAnAny_ReportsTheConditionThatHeld() {
+		Verdict verdict = check("- not: { any: [permission: chat.admin, recipient: [permission: chat.receive]] }");
+
+		Verdict.Failed failed = assertFailed("chat.requires[0].not.any[1].recipient[0].permission", "permission", verdict);
+		assertEquals(List.of(Chat.RECIPIENT), failed.parts());
+	}
+
+	@Test
+	void notOfNot_ReportsTheFailureInside() {
+		Verdict.Failed failed = assertFailed("chat.requires[0].not.not.permission", "permission", check("- not: { not: { permission: chat.admin } }"));
+
+		assertEquals(Optional.of("permission.missing"), failed.key());
+	}
+
+	@Test
+	void not_AtAPlaceThatWaits_ReportsTheReasonOfATypeThatAnswersLater() {
+		Player customer = new Player("customer", Set.of("chat.global"), 0, Set.of("vip"));
+		DeferredPlace place = deferred("- not: { owns: vip }");
+
+		Verdict verdict = place.check(Situation.of(Chat.SENDER, customer).and(Chat.RECIPIENT, RECIPIENT)).toCompletableFuture().join();
+
+		assertEquals(Optional.of("owns.owned"), assertFailed("chat.requires[0].not.owns", "owns", verdict).key());
+	}
+
+	@Test
+	void not_ThatHolds_LetsTheCheckGoOn() {
+		assertTrue(check(place("- not: { permission: chat.admin }")).passed());
+		assertFailed("chat.requires[1].permission", "permission", check(place("- not: { permission: chat.admin }\n- permission: chat.receive")));
 	}
 
 	@Test

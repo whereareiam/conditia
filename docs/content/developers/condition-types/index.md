@@ -36,7 +36,7 @@ A type that takes no settings returns `NoSettings.class`; its value then names t
 
 ## Outcomes and reasons
 
-`holds` answers with `Outcome.pass()`, `Outcome.fail()` or `Outcome.fail(reason)`; `Outcome.when(boolean)` covers a plain yes or no. A deferred type returns its service's stage, or `outcome.completed()` when it can sometimes decide at once. A type that throws, or whose stage completes exceptionally, makes the check broken, which denies.
+`holds` answers with `Outcome.pass()`, `Outcome.fail()` or `Outcome.fail(reason)`; `Outcome.when(boolean)` covers a plain yes or no. `Outcome.pass(reason)` says why a condition holds: a `not` around it fails with that reason, so `not: { world: nether }` can tell a player they are in the nether rather than only that a `not` failed. A deferred type returns its service's stage, or `outcome.completed()` when it can sometimes decide at once. A type that throws, or whose stage completes exceptionally, makes the check broken, which denies.
 
 A reason is a record nested in the type, listed in `reasons()` so a host can check that every reason has a text:
 
@@ -58,7 +58,15 @@ public final class OwnsCondition implements ConditionType.Deferred.Single<Member
 }
 ```
 
-The key of a reason's texts is the type's name and the record's in lower case with dashes: `owns.missing`, or `products:owns.missing` for a type registered by the owner `products`.
+```java
+public Outcome holds(Player player, Settings settings) {
+    String world = player.world();
+
+    return settings.worlds().contains(world) ? Outcome.pass(new Inside(world)) : Outcome.fail(new Outside(settings.worlds(), world));
+}
+```
+
+The key of a reason's texts is the type's name and the record's in lower case with dashes: `owns.missing`, `world.inside`, or `products:owns.missing` for a type registered by the owner `products`.
 
 ## Registering
 

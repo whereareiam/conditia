@@ -48,7 +48,7 @@ A type that takes no settings reads its value as the parts: `above: [actor, targ
 | --- | --- |
 | a list | every condition in it holds, checked in order |
 | `any: [...]` | one condition in it holds |
-| `not: {...}` or `not: [...]` | the condition, or the whole list, does not hold |
+| `not: {...}` or `not: [...]` | the condition, or the whole list, does not hold; when it fails, players are told why the condition inside held, such as the world they are in |
 | a host's word for named lists, such as `audience: moderator` | the named list holds, about the same parts |
 
 ## Built-in types
