@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.concurrent.CompletionStage;
 
 /**
  * {@code date: { from: 2026-12-20, to: 2027-01-06 }}: holds on the days from {@code from} to {@code to}, both
@@ -28,10 +27,10 @@ public final class DateCondition implements ConditionType.Plain<DateCondition.Se
 	}
 
 	@Override
-	public @NotNull CompletionStage<Outcome> holds(@NotNull Settings settings) {
+	public @NotNull Outcome holds(@NotNull Settings settings) {
 		LocalDate today = LocalDate.now(clock);
 
-		return Outcome.when(!today.isBefore(settings.from()) && !today.isAfter(settings.to())).completed();
+		return Outcome.when(!today.isBefore(settings.from()) && !today.isAfter(settings.to()));
 	}
 
 	/**

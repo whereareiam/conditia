@@ -15,41 +15,73 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Runs a bound check in order and stops at the first condition that does not hold. Nothing here completes
- * exceptionally: a type that throws makes the verdict {@link Verdict.Broken}.
+ * Runs a bound check in order and stops at the first condition that does not hold, either at once on the caller's
+ * thread or as a stage that waits for types answering later. Nothing here throws or completes exceptionally: a type
+ * that throws makes the verdict {@link Verdict.Broken}.
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Evaluation {
 	private static final Verdict PASSED = new Verdict.Passed();
 
 	/**
-	 * Runs a check.
+	 * Runs a check whose conditions all answer at once.
+	 *
+	 * @param check     the bound check, bound for a place that needs its answer at once
+	 * @param situation the values of the place's parts
+	 * @return the verdict
+	 */
+	public static @NotNull Verdict now(@NotNull Check check, @NotNull Situation situation) {
+		return switch (check) {
+			case Check.All all -> {
+				for (Check each : all.checks()) {
+					Verdict verdict = now(each, situation);
+					if (!verdict.passed()) yield verdict;
+				}
+
+				yield PASSED;
+			}
+			case Check.Any any -> {
+				for (Check each : any.checks()) {
+					Verdict verdict = now(each, situation);
+					if (!(verdict instanceof Verdict.Failed)) yield verdict;
+				}
+
+				yield new Verdict.Failed(any.path(), "any", Optional.empty());
+			}
+			case Check.Not not -> negate(not, now(not.check(), situation));
+			case Check.Named named -> name(named, now(named.check(), situation));
+			case Check.Test test -> switch (test.run()) {
+				case Check.Immediate immediate -> immediate(test, immediate, situation);
+				case Check.Deferred ignored -> new Verdict.Broken(test.path(), test.condition(),
+						new IllegalStateException("The type answers later, and the place needs its answer at once"));
+			};
+		};
+	}
+
+	/**
+	 * Runs a check, waiting for the types that answer later.
 	 *
 	 * @param check     the bound check
 	 * @param situation the values of the place's parts
 	 * @return a stage completing with the verdict
 	 */
-	public static @NotNull CompletionStage<Verdict> run(@NotNull Check check, @NotNull Situation situation) {
+	public static @NotNull CompletionStage<Verdict> later(@NotNull Check check, @NotNull Situation situation) {
 		return switch (check) {
 			case Check.All all -> all(all.checks(), 0, situation);
 			case Check.Any any -> any(any, 0, situation);
-			case Check.Not not -> run(not.check(), situation).thenApply(verdict -> switch (verdict) {
-				case Verdict.Passed ignored -> new Verdict.Failed(not.path(), "not", Optional.empty());
-				case Verdict.Failed ignored -> PASSED;
-				case Verdict.Broken broken -> broken;
-			});
-			case Check.Named named -> run(named.check(), situation).thenApply(verdict -> switch (verdict) {
-				case Verdict.Failed failed -> new Verdict.Failed(named.path(), named.condition(), failed.reason());
-				default -> verdict;
-			});
-			case Check.Test test -> test(test, situation);
+			case Check.Not not -> later(not.check(), situation).thenApply(verdict -> negate(not, verdict));
+			case Check.Named named -> later(named.check(), situation).thenApply(verdict -> name(named, verdict));
+			case Check.Test test -> switch (test.run()) {
+				case Check.Immediate immediate -> CompletableFuture.completedStage(immediate(test, immediate, situation));
+				case Check.Deferred deferred -> deferred(test, deferred, situation);
+			};
 		};
 	}
 
 	private static CompletionStage<Verdict> all(List<Check> checks, int index, Situation situation) {
 		if (index == checks.size()) return CompletableFuture.completedStage(PASSED);
 
-		return run(checks.get(index), situation)
+		return later(checks.get(index), situation)
 				.thenCompose(verdict -> verdict.passed() ? all(checks, index + 1, situation) : CompletableFuture.completedStage(verdict));
 	}
 
@@ -57,26 +89,56 @@ public final class Evaluation {
 		if (index == any.checks().size())
 			return CompletableFuture.completedStage(new Verdict.Failed(any.path(), "any", Optional.empty()));
 
-		return run(any.checks().get(index), situation).thenCompose(verdict -> switch (verdict) {
+		return later(any.checks().get(index), situation).thenCompose(verdict -> switch (verdict) {
 			case Verdict.Failed ignored -> any(any, index + 1, situation);
 			default -> CompletableFuture.completedStage(verdict);
 		});
 	}
 
-	private static CompletionStage<Verdict> test(Check.Test test, Situation situation) {
+	private static Verdict negate(Check.Not not, Verdict verdict) {
+		return switch (verdict) {
+			case Verdict.Passed ignored -> new Verdict.Failed(not.path(), "not", Optional.empty());
+			case Verdict.Failed ignored -> PASSED;
+			case Verdict.Broken broken -> broken;
+		};
+	}
+
+	private static Verdict name(Check.Named named, Verdict verdict) {
+		return switch (verdict) {
+			case Verdict.Failed failed -> new Verdict.Failed(named.path(), named.condition(), failed.reason());
+			default -> verdict;
+		};
+	}
+
+	private static Verdict immediate(Check.Test test, Check.Immediate run, Situation situation) {
+		Outcome outcome;
+		try {
+			outcome = run.holds(situation);
+		} catch (RuntimeException exception) {
+			return new Verdict.Broken(test.path(), test.condition(), exception);
+		}
+
+		return verdict(test, outcome);
+	}
+
+	private static CompletionStage<Verdict> deferred(Check.Test test, Check.Deferred run, Situation situation) {
 		CompletionStage<Outcome> outcome;
 		try {
-			outcome = test.run().holds(situation);
+			outcome = run.holds(situation);
 		} catch (RuntimeException exception) {
 			return CompletableFuture.completedStage(new Verdict.Broken(test.path(), test.condition(), exception));
 		}
+		if (outcome == null) return CompletableFuture.completedStage(verdict(test, null));
 
-		return outcome.handle((result, error) -> {
-			if (error != null) return new Verdict.Broken(test.path(), test.condition(), unwrap(error));
-			if (result == null) return new Verdict.Broken(test.path(), test.condition(), new NullPointerException("The type completed without an outcome"));
+		return outcome.handle((result, error) -> error != null
+				? new Verdict.Broken(test.path(), test.condition(), unwrap(error))
+				: verdict(test, result));
+	}
 
-			return result.passed() ? PASSED : new Verdict.Failed(test.path(), test.condition(), result.reason());
-		});
+	private static Verdict verdict(Check.Test test, Outcome outcome) {
+		if (outcome == null) return new Verdict.Broken(test.path(), test.condition(), new NullPointerException("The type answered without an outcome"));
+
+		return outcome.passed() ? PASSED : new Verdict.Failed(test.path(), test.condition(), outcome.reason());
 	}
 
 	private static Throwable unwrap(Throwable error) {

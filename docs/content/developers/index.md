@@ -13,7 +13,7 @@ Conditia is published to the [public Maven registry](https://registry.whereareia
 
 | Artifact | Who depends on it | What it holds |
 | --- | --- | --- |
-| `conditia-api` | condition types, through the host's API | `ConditionType`, `Conditions`, `ConditionScope`, `Place`, `Part`, `Situation`, `Requirements`, `Outcome`, `Reason`, `Verdict` |
+| `conditia-api` | condition types, through the host's API | `ConditionType`, `Conditions`, `ConditionScope`, `Place`, `DeferredPlace`, `Part`, `Situation`, `Requirements`, `Outcome`, `Reason`, `Verdict` |
 | `conditia-common` | the host, shipped inside it | `DefaultConditions`, `ConditionsOptions`, the types `time`, `date` and `chance` |
 | `conditia-adapter-configura` | a host whose configs are read by Configura | `ConditiaFeature`, `ConfiguraSettings` |
 | `conditia-adapter-chassis` | a host whose plugins are Chassis extensions | `ExtensionConditions` |
@@ -56,17 +56,16 @@ ChannelConfig channel = configura.read(folder.resolve("channels/global.yml"), Ch
 Place place = conditions.place("channels.global.requires", channel.getRequires(), Chat.SENDER, Chat.RECIPIENT);
 ```
 
-A check gets a value for every part and completes with a verdict:
+A check gets a value for every part and gives a verdict at once, on the thread that asks:
 
 ```java
-place.check(Situation.of(Chat.SENDER, sender).and(Chat.RECIPIENT, recipient))
-        .thenAccept(verdict -> {
-            switch (verdict) {
-                case Verdict.Passed passed -> deliver(message, recipient);
-                case Verdict.Failed failed -> deny(sender, failed);
-                case Verdict.Broken broken -> logger.warn("Cannot check {}", broken.path(), broken.error());
-            }
-        });
+switch (place.check(Situation.of(Chat.SENDER, sender).and(Chat.RECIPIENT, recipient))) {
+    case Verdict.Passed passed -> deliver(message, recipient);
+    case Verdict.Failed failed -> deny(sender, failed);
+    case Verdict.Broken broken -> logger.warn("Cannot check {}", broken.path(), broken.error());
+}
 ```
+
+A place that may wait, such as a command that asks a database, is a `DeferredPlace` from `conditions.deferredPlace(...)`; its check completes a `CompletionStage<Verdict>` and takes types that answer later too.
 
 Next: [Writing conditions](./writing-conditions/index.md) shows what the list may say, [Condition types](./condition-types/index.md) how to add a type, and [Hosting Conditia](./hosting/index.md) how verdicts, named lists and scopes work.

@@ -16,7 +16,7 @@ The build uses a Java 21 toolchain; Gradle downloads one when the machine has no
 | Module | Holds |
 | --- | --- |
 | `conditia-api` | the contracts types and hosts compile against; no behavior |
-| `conditia-common` | `DefaultConditions` and its packages: `registration` (types and named lists by owner), `binding` (the startup checks and the part choice), `evaluation` (running a bound check), `place` (places bound again after changes), `type` (`time`, `date`, `chance`) |
+| `conditia-common` | `DefaultConditions` and its packages: `registration` (types and named lists by owner), `binding` (the startup checks and the part choice), `evaluation` (running a bound check, at once or as a stage), `place` (immediate and waiting places, bound again after changes), `type` (`time`, `date`, `chance`) |
 | `conditia-adapter-configura` | reading `Requirements` and settings through Configura; Configura is `compileOnly` |
 | `conditia-adapter-chassis` | a scope per Chassis extension; Chassis is `compileOnly` |
 | `conditia-testing` | `TestRequirements` and `TestSettings` |

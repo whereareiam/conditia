@@ -9,6 +9,7 @@ When changing behavior:
 - keep Conditia host-agnostic: nothing in `conditia-api` or `conditia-common` knows a Discord member, a Minecraft player or a host's word for named lists
 - keep `holds` typed: a type gets its parts as parameters, never by looking them up
 - a check denies when in doubt: a type that throws, or a place that cannot be bound, is `Broken`, never `Passed`
+- a `Place` never waits: it binds only types that answer at once, so a check runs on the caller's thread
 
 ---
 
@@ -17,9 +18,9 @@ When changing behavior:
 ### Module Map
 
 - `conditia-api`
-  The contracts types and hosts compile against: `ConditionType` (`Plain`, `Single`, `Pair`), `Conditions`, `ConditionRegistrar`, `ConditionScope`, `Place`, `SettingsReader`; `model` (`Part`, `Situation`, `Requirements`, `Node`, `NoSettings`, `Names`); `result` (`Outcome`, `Reason`, `Verdict`); `exception` (`ConditionException`).
+  The contracts types and hosts compile against: `ConditionType` (`Plain`, `Single`, `Pair`, answering at once, and the same under `Deferred`, answering later), `Conditions`, `ConditionRegistrar`, `ConditionScope`, `Place`, `DeferredPlace`, `SettingsReader`; `model` (`Part`, `Situation`, `Requirements`, `Node`, `NoSettings`, `Names`); `result` (`Outcome`, `Reason`, `Verdict`); `exception` (`ConditionException`).
 - `conditia-common`
-  `DefaultConditions` is the door: it implements `Conditions`, serialises every change and binds all places again after it; `ConditionsOptions` is what a host tells it. Packages: `registration` (`Registrations`: types and named lists by owner), `binding` (`Binder`, `TestBinding`, `PartChoice`, `Focus`, `Check`: the startup checks and the bound tree), `evaluation` (`Evaluation`: running a check in order), `place` (`Places`, `DefaultPlace`), `type` (`TimeCondition`, `DateCondition`, `ChanceCondition`).
+  `DefaultConditions` is the door: it implements `Conditions`, serialises every change and binds all places again after it; `ConditionsOptions` is what a host tells it. Packages: `registration` (`Registrations`: types and named lists by owner), `binding` (`Binder`, `TestBinding`, `PartChoice`, `Focus`, `Check`: the startup checks and the bound tree), `evaluation` (`Evaluation`: running a check in order, at once or as a stage), `place` (`Places`, `BoundPlace`, `DefaultPlace`, `DefaultDeferredPlace`), `type` (`TimeCondition`, `DateCondition`, `ChanceCondition`).
 - `conditia-adapter-configura`
   `ConditiaFeature` (reads and writes `Requirements` through Configura) and `ConfiguraSettings` (reads settings with Configura's mapper). Configura and Jackson are `compileOnly`.
 - `conditia-adapter-chassis`

@@ -1,18 +1,23 @@
 package me.whereareiam.conditia.common;
 
 import me.whereareiam.conditia.ConditionScope;
+import me.whereareiam.conditia.ConditionType;
 import me.whereareiam.conditia.Conditions;
 import me.whereareiam.conditia.Place;
+import me.whereareiam.conditia.DeferredPlace;
 import me.whereareiam.conditia.common.Chat.Player;
 import me.whereareiam.conditia.exception.ConditionException;
 import me.whereareiam.conditia.model.Situation;
+import me.whereareiam.conditia.result.Outcome;
 import me.whereareiam.conditia.result.Verdict;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 
 import static me.whereareiam.conditia.testing.TestRequirements.yaml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +43,7 @@ class DefaultConditionsTest {
 		conditions.register(new Chat.Ahead());
 		conditions.register(new Chat.Owns());
 		conditions.register(new Chat.Broken());
+		conditions.register(new Chat.Faulty());
 	}
 
 	@Test
@@ -108,6 +114,73 @@ class DefaultConditionsTest {
 	}
 
 	@Test
+	void place_ChecksAtOnce() {
+		Place place = place("""
+				- permission: chat.global
+				- recipient: [permission: chat.receive]
+				- nearby: 50
+				""");
+
+		assertTrue(check(place).passed());
+		assertFailed("chat.requires[0].permission", "permission", check(place("- permission: chat.receive")));
+	}
+
+	@Test
+	void place_WithATypeThatAnswersLater_CannotBeBound() {
+		ConditionException exception = assertThrows(ConditionException.class, () -> place("- recipient: [owns: vip]"));
+
+		assertEquals("chat.requires[0].recipient[0].owns", exception.getPath());
+		assertTrue(exception.getMessage().contains("answers later"));
+	}
+
+	@Test
+	void place_WithATypeThatAnswersLaterInsideANamedList_CannotBeBound() {
+		conditions.name("customer", yaml("- not: { owns: vip }"));
+
+		ConditionException exception = assertThrows(ConditionException.class, () -> place("- audience: customer"));
+
+		assertEquals("chat.requires[0].audience[0].not.owns", exception.getPath());
+	}
+
+	@Test
+	void place_WithATypeThatThrows_IsBroken() {
+		Verdict.Broken broken = assertInstanceOf(Verdict.Broken.class, check(place("- faulty:")));
+
+		assertEquals("chat.requires[0].faulty", broken.path());
+		assertEquals("thrown at once", broken.error().getMessage());
+	}
+
+	@Test
+	void place_WhoseTypeIsRegisteredAgainAnsweringLater_DeniesEveryone() {
+		ConditionScope scope = conditions.scope("shop");
+		scope.register(new Chat.Permission());
+		Place place = place("- shop:permission: chat.global");
+
+		assertTrue(check(place).passed());
+
+		scope.close();
+		ConditionScope again = conditions.scope("shop");
+		again.register(new Later());
+
+		assertInstanceOf(Verdict.Broken.class, check(place));
+
+		again.close();
+		conditions.scope("shop").register(new Chat.Permission());
+		assertTrue(check(place).passed());
+	}
+
+	@Test
+	void deferredPlace_TakesTypesThatAnswerAtOnceAndLater() {
+		Player customer = new Player("customer", Set.of("chat.global"), 0, Set.of("vip"));
+		DeferredPlace place = deferred("""
+				- permission: chat.global
+				- owns: vip
+				""");
+
+		assertTrue(place.check(Situation.of(Chat.SENDER, customer).and(Chat.RECIPIENT, RECIPIENT)).toCompletableFuture().join().passed());
+	}
+
+	@Test
 	void namedList_ReportsTheReferenceWithTheReasonInside_AndFollowsTheBlock() {
 		conditions.name("customer", yaml("- owns: vip"));
 
@@ -121,21 +194,21 @@ class DefaultConditionsTest {
 	void namedList_ThatRefersToItself_CannotBeBound() {
 		conditions.name("loop", yaml("- audience: loop"));
 
-		ConditionException exception = assertThrows(ConditionException.class, () -> place("- audience: loop"));
+		ConditionException exception = assertThrows(ConditionException.class, () -> deferred("- audience: loop"));
 
 		assertEquals("chat.requires[0].audience[0].audience", exception.getPath());
 	}
 
 	@Test
 	void place_WithAnUnknownType_CannotBeBound() {
-		ConditionException exception = assertThrows(ConditionException.class, () -> place("- recipient: [verified: true]"));
+		ConditionException exception = assertThrows(ConditionException.class, () -> deferred("- recipient: [verified: true]"));
 
 		assertEquals("chat.requires[0].recipient[0].verified", exception.getPath());
 	}
 
 	@Test
 	void place_WithUnreadableSettings_CannotBeBound() {
-		ConditionException exception = assertThrows(ConditionException.class, () -> place("- nearby: far"));
+		ConditionException exception = assertThrows(ConditionException.class, () -> deferred("- nearby: far"));
 
 		assertEquals("chat.requires[0].nearby", exception.getPath());
 	}
@@ -143,7 +216,7 @@ class DefaultConditionsTest {
 	@Test
 	void place_WhereSeveralPartsFit_AsksForOf() {
 		ConditionException exception = assertThrows(ConditionException.class, () ->
-				conditions.place("chat.requires", yaml("- permission: chat.global"), Chat.MESSAGE, Chat.SENDER, Chat.RECIPIENT));
+				conditions.deferredPlace("chat.requires", yaml("- permission: chat.global"), Chat.MESSAGE, Chat.SENDER, Chat.RECIPIENT));
 
 		assertTrue(exception.getMessage().contains("`of`"));
 	}
@@ -151,14 +224,14 @@ class DefaultConditionsTest {
 	@Test
 	void place_WithAPartNamedLikeAType_CannotBeBound() {
 		assertThrows(ConditionException.class, () ->
-				conditions.place("chat.requires", yaml("[]"), me.whereareiam.conditia.model.Part.of("owns", Player.class)));
+				conditions.deferredPlace("chat.requires", yaml("[]"), me.whereareiam.conditia.model.Part.of("owns", Player.class)));
 	}
 
 	@Test
 	void scope_RegistersWithItsPrefix_AndItsPlacesDenyAfterItCloses() {
 		ConditionScope scope = conditions.scope("shop");
 		scope.register(new Chat.Owns());
-		Place place = place("- shop:owns: []");
+		DeferredPlace place = deferred("- shop:owns: []");
 
 		assertTrue(check(place).passed());
 
@@ -178,7 +251,7 @@ class DefaultConditionsTest {
 
 	@Test
 	void check_OfASituationWithoutAPart_IsRefused() {
-		Place place = place("[]");
+		DeferredPlace place = deferred("[]");
 
 		assertThrows(IllegalArgumentException.class, () -> place.check(Situation.of(Chat.SENDER, SENDER)));
 	}
@@ -187,7 +260,7 @@ class DefaultConditionsTest {
 	void closedPlace_IsNoLongerBoundAgain() {
 		ConditionScope scope = conditions.scope("shop");
 		scope.register(new Chat.Owns());
-		Place place = place("- shop:owns: []");
+		DeferredPlace place = deferred("- shop:owns: []");
 
 		place.close();
 		scope.close();
@@ -196,7 +269,11 @@ class DefaultConditionsTest {
 	}
 
 	private Verdict check(String requires) {
-		return check(place(requires));
+		return check(deferred(requires));
+	}
+
+	private DeferredPlace deferred(String requires) {
+		return conditions.deferredPlace("chat.requires", yaml(requires), Chat.SENDER, Chat.RECIPIENT);
 	}
 
 	private Place place(String requires) {
@@ -204,6 +281,10 @@ class DefaultConditionsTest {
 	}
 
 	private static Verdict check(Place place) {
+		return place.check(Situation.of(Chat.SENDER, SENDER).and(Chat.RECIPIENT, RECIPIENT));
+	}
+
+	private static Verdict check(DeferredPlace place) {
 		return place.check(Situation.of(Chat.SENDER, SENDER).and(Chat.RECIPIENT, RECIPIENT)).toCompletableFuture().join();
 	}
 
@@ -213,5 +294,24 @@ class DefaultConditionsTest {
 		assertEquals(condition, failed.condition());
 
 		return failed;
+	}
+
+	// A permission type that answers later, registered under the name an immediate one had.
+	private static final class Later implements ConditionType.Deferred.Single<Player, Chat.Permission.Settings> {
+		public @NotNull String name() {
+			return "permission";
+		}
+
+		public @NotNull Class<Player> subject() {
+			return Player.class;
+		}
+
+		public @NotNull Class<Chat.Permission.Settings> settings() {
+			return Chat.Permission.Settings.class;
+		}
+
+		public @NotNull CompletionStage<Outcome> holds(@NotNull Player player, Chat.Permission.@NotNull Settings settings) {
+			return Outcome.pass().completed();
+		}
 	}
 }

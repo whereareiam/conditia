@@ -76,7 +76,7 @@ public final class Outcome {
 	}
 
 	/**
-	 * This outcome as a completed stage, for types that decide at once.
+	 * This outcome as a completed stage, for a deferred type that can sometimes decide at once.
 	 *
 	 * @return the completed stage
 	 */

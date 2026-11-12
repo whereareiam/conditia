@@ -21,7 +21,6 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionStage;
 
 import static me.whereareiam.conditia.testing.TestRequirements.node;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,7 +49,7 @@ class ConditiaFeatureTest {
 		Conditions conditions = new DefaultConditions(ConditionsOptions.builder().reader(settings).build());
 		conditions.register(new Permission());
 
-		boolean passed = conditions.place("chat.requires", config.requires, SENDER, RECIPIENT)
+		boolean passed = conditions.deferredPlace("chat.requires", config.requires, SENDER, RECIPIENT)
 				.check(Situation.of(SENDER, new Player(Set.of("chat.global"))).and(RECIPIENT, new Player(Set.of("chat.receive"))))
 				.toCompletableFuture()
 				.join()
@@ -138,8 +137,8 @@ class ConditiaFeatureTest {
 			return Settings.class;
 		}
 
-		public @NotNull CompletionStage<Outcome> holds(@NotNull Player player, @NotNull Settings settings) {
-			return Outcome.when(player.permissions().containsAll(settings.nodes())).completed();
+		public @NotNull Outcome holds(@NotNull Player player, @NotNull Settings settings) {
+			return Outcome.when(player.permissions().containsAll(settings.nodes()));
 		}
 	}
 }

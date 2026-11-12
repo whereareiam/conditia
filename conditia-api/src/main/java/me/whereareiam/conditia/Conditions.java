@@ -13,8 +13,7 @@ import java.util.Map;
  *
  * <pre>{@code
  * Place place = conditions.place("chat.global.requires", chat.getRequires(), Chat.SENDER, Chat.RECIPIENT);
- * place.check(Situation.of(Chat.SENDER, sender).and(Chat.RECIPIENT, recipient))
- *         .thenAccept(verdict -> ...);
+ * Verdict verdict = place.check(Situation.of(Chat.SENDER, sender).and(Chat.RECIPIENT, recipient));
  * }</pre>
  */
 public interface Conditions extends ConditionRegistrar {
@@ -28,8 +27,23 @@ public interface Conditions extends ConditionRegistrar {
 	@NotNull ConditionScope scope(@NotNull String owner);
 
 	/**
-	 * Binds requirements to a place: reads every condition's settings and decides which parts each is about. A host
-	 * creates its places after its owners have registered, so an unknown type stops startup.
+	 * Binds requirements to a place that needs its answer at once: reads every condition's settings and decides which
+	 * parts each is about. A host creates its places after its owners have registered, so an unknown type stops
+	 * startup.
+	 *
+	 * @param path     where the requirements stand in the host's config, such as {@code chat.global.requires}; it
+	 *                 begins every path in errors and verdicts
+	 * @param requires the requirements
+	 * @param parts    the parts every check of this place supplies; the first is the main participant
+	 * @return the place, bound again after every change of registrations until it is closed
+	 * @throws ConditionException when a condition names an unknown type, list or part, its settings cannot be read,
+	 *                            no part fits it, a part's name is also a type's name, or its type answers later
+	 */
+	@NotNull Place place(@NotNull String path, @NotNull Requirements requires, @NotNull Part<?>... parts);
+
+	/**
+	 * Binds requirements to a place that waits for its answer, as {@link #place(String, Requirements, Part[])} does,
+	 * and also takes conditions of types that answer later.
 	 *
 	 * @param path     where the requirements stand in the host's config, such as {@code commands.clear.requires}; it
 	 *                 begins every path in errors and verdicts
@@ -39,7 +53,7 @@ public interface Conditions extends ConditionRegistrar {
 	 * @throws ConditionException when a condition names an unknown type, list or part, its settings cannot be read,
 	 *                            no part fits it, or a part's name is also a type's name
 	 */
-	@NotNull Place place(@NotNull String path, @NotNull Requirements requires, @NotNull Part<?>... parts);
+	@NotNull DeferredPlace deferredPlace(@NotNull String path, @NotNull Requirements requires, @NotNull Part<?>... parts);
 
 	/**
 	 * The types registered now, by the names configs use.

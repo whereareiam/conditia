@@ -55,8 +55,8 @@ class BuiltInTypesTest {
 		assertThrows(IllegalArgumentException.class, () -> new ChanceCondition.Settings(1.5));
 	}
 
-	private static boolean holds(java.util.concurrent.CompletionStage<me.whereareiam.conditia.result.Outcome> outcome) {
-		return outcome.toCompletableFuture().join().passed();
+	private static boolean holds(me.whereareiam.conditia.result.Outcome outcome) {
+		return outcome.passed();
 	}
 
 	private static RandomGenerator fixed(double draw) {

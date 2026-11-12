@@ -63,5 +63,5 @@ A type that takes no settings reads its value as the parts: `above: [actor, targ
 
 Every problem names the config path, such as `commands.clear.requires[1].target[0].not`:
 
-- at startup: an unknown type, part or named list, settings that cannot be read, a condition no part fits or one where several fit;
+- at startup: an unknown type, part or named list, settings that cannot be read, a condition no part fits or one where several fit, or a condition that has to wait for a service at a place that needs its answer at once;
 - later: a condition whose type or named list was removed with its plugin denies everyone and is logged, until the plugin loads again.

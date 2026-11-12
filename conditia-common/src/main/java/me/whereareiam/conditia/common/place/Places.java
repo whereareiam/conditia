@@ -2,7 +2,9 @@ package me.whereareiam.conditia.common.place;
 
 import lombok.RequiredArgsConstructor;
 import me.whereareiam.conditia.Place;
+import me.whereareiam.conditia.DeferredPlace;
 import me.whereareiam.conditia.common.binding.Binder;
+import me.whereareiam.conditia.common.binding.Timing;
 import me.whereareiam.conditia.exception.ConditionException;
 import me.whereareiam.conditia.model.Part;
 import me.whereareiam.conditia.model.Requirements;
@@ -19,11 +21,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @RequiredArgsConstructor
 public final class Places {
-	private final Set<DefaultPlace> places = ConcurrentHashMap.newKeySet();
+	private final Set<BoundPlace> places = ConcurrentHashMap.newKeySet();
 	private final System.Logger logger;
 
 	/**
-	 * Binds requirements to a new place.
+	 * Binds requirements to a new place that waits for types answering later.
 	 *
 	 * @param binder   binds with what is registered now
 	 * @param path     the requirements' path
@@ -32,8 +34,25 @@ public final class Places {
 	 * @return the place
 	 * @throws ConditionException when the requirements cannot be bound
 	 */
+	public @NotNull DeferredPlace openDeferred(@NotNull Binder binder, @NotNull String path, @NotNull Requirements requires, @NotNull List<Part<?>> parts) {
+		DefaultDeferredPlace place = new DefaultDeferredPlace(path, requires, parts, this, binder.bind(path, requires, parts, Timing.DEFERRED));
+		places.add(place);
+
+		return place;
+	}
+
+	/**
+	 * Binds requirements to a new place that needs its answer at once.
+	 *
+	 * @param binder   binds with what is registered now
+	 * @param path     the requirements' path
+	 * @param requires the requirements
+	 * @param parts    the place's parts
+	 * @return the place
+	 * @throws ConditionException when the requirements cannot be bound, or name a type that answers later
+	 */
 	public @NotNull Place open(@NotNull Binder binder, @NotNull String path, @NotNull Requirements requires, @NotNull List<Part<?>> parts) {
-		DefaultPlace place = new DefaultPlace(path, requires, parts, this, binder.bind(path, requires, parts));
+		DefaultPlace place = new DefaultPlace(path, requires, parts, this, binder.bind(path, requires, parts, Timing.IMMEDIATE));
 		places.add(place);
 
 		return place;
@@ -45,7 +64,7 @@ public final class Places {
 	 * @param binder binds with what is registered now
 	 */
 	public void rebind(@NotNull Binder binder) {
-		for (DefaultPlace place : places) {
+		for (BoundPlace place : places) {
 			boolean wasBound = place.bound();
 			Optional<ConditionException> problem = place.rebind(binder);
 
@@ -54,7 +73,7 @@ public final class Places {
 		}
 	}
 
-	void remove(DefaultPlace place) {
+	void remove(BoundPlace place) {
 		places.remove(place);
 	}
 }

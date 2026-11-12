@@ -5,7 +5,6 @@ import me.whereareiam.conditia.ConditionType;
 import me.whereareiam.conditia.result.Outcome;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.CompletionStage;
 import java.util.random.RandomGenerator;
 
 /**
@@ -26,8 +25,8 @@ public final class ChanceCondition implements ConditionType.Plain<ChanceConditio
 	}
 
 	@Override
-	public @NotNull CompletionStage<Outcome> holds(@NotNull Settings settings) {
-		return Outcome.when(random.nextDouble() < settings.probability()).completed();
+	public @NotNull Outcome holds(@NotNull Settings settings) {
+		return Outcome.when(random.nextDouble() < settings.probability());
 	}
 
 	/**

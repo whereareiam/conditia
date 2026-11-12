@@ -13,6 +13,12 @@ A condition type is a class implementing one of three shapes, chosen by how many
 
 Conditia decides at startup which parts a condition is about, so `holds` gets plain typed values and never looks anything up. A part fits when its type is the type's class or a subtype.
 
+## Answering at once or later
+
+The shapes above answer at once: `holds` returns an `Outcome` from what the host already holds in memory, and every place takes them. A type that has to ask a service, such as a database or another server, implements the same shape under `ConditionType.Deferred` (`Deferred.Plain`, `Deferred.Single`, `Deferred.Pair`), whose `holds` returns a `CompletionStage<Outcome>`.
+
+Only a `DeferredPlace`, which waits for its verdict, takes a deferred type. A `Place` needs its answer on the thread that asks, such as a chat message on a game server's chat thread, and stops startup with the condition's path when one is named there. Keep a type immediate whenever its owner can hold the answer in memory, such as playtime loaded when a player joins, so every place can use it.
+
 ## Settings
 
 `settings()` names the class a condition's settings are read into, usually a record nested in the type. A bare value fills its only component; a type whose settings have several names the one a bare value fills with `main()`:
@@ -30,12 +36,12 @@ A type that takes no settings returns `NoSettings.class`; its value then names t
 
 ## Outcomes and reasons
 
-`holds` completes with `Outcome.pass()`, `Outcome.fail()` or `Outcome.fail(reason)`. `Outcome.when(boolean)` and `completed()` cover types that decide at once; a type that asks a service returns that service's stage. A type that throws, or whose stage completes exceptionally, makes the check broken, which denies.
+`holds` answers with `Outcome.pass()`, `Outcome.fail()` or `Outcome.fail(reason)`; `Outcome.when(boolean)` covers a plain yes or no. A deferred type returns its service's stage, or `outcome.completed()` when it can sometimes decide at once. A type that throws, or whose stage completes exceptionally, makes the check broken, which denies.
 
 A reason is a record nested in the type, listed in `reasons()` so a host can check that every reason has a text:
 
 ```java
-public final class OwnsCondition implements ConditionType.Single<Member, OwnsCondition.Settings> {
+public final class OwnsCondition implements ConditionType.Deferred.Single<Member, OwnsCondition.Settings> {
     public record Settings(List<String> products) {}
 
     public record Missing(List<String> products) implements Reason {
@@ -75,5 +81,5 @@ TestSettings settings = new TestSettings()
 Conditions conditions = new DefaultConditions(ConditionsOptions.builder().reader(settings).build());
 conditions.register(new OwnsCondition(store));
 
-Place place = conditions.place("test", TestRequirements.yaml("- owns: vip"), MEMBER);
+DeferredPlace place = conditions.deferredPlace("test", TestRequirements.yaml("- owns: vip"), MEMBER);
 ```
