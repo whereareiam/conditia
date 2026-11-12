@@ -27,8 +27,10 @@ public sealed interface Verdict permits Verdict.Passed, Verdict.Failed, Verdict.
 	}
 
 	/**
-	 * A condition did not hold. A failed {@code any} and a failed {@code not} report themselves, without a reason; a
-	 * failed named list reports the condition in it that failed, at a path that runs through the reference.
+	 * A condition did not hold. A failed {@code not} reports the condition inside it that held, with the reason its
+	 * type gave on passing, or itself without a reason when several conditions inside it held together; a failed
+	 * {@code any} of several conditions reports itself, without a reason. A failed named list reports the condition
+	 * in it that failed, at a path that runs through the reference.
 	 *
 	 * <p>The parts tell a host whose wording to show, such as the sender's or the recipient's: those of the place the
 	 * condition was about, or, for an {@code any} or a {@code not}, those its conditions were about.</p>
@@ -38,7 +40,7 @@ public sealed interface Verdict permits Verdict.Passed, Verdict.Failed, Verdict.
 	 *                  or {@code not}
 	 * @param parts     the parts of the place the condition was about, in the place's order; empty for a condition
 	 *                  about no part
-	 * @param reason    why it failed, when its type said
+	 * @param reason    why it failed, or inside a {@code not} why it held, when its type said
 	 */
 	record Failed(@NotNull String path, @NotNull String condition, @NotNull List<Part<?>> parts, @NotNull Optional<Reason> reason) implements Verdict {
 		/**

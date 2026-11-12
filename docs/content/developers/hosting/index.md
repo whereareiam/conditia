@@ -23,7 +23,7 @@ A check gives a sealed `Verdict` and never throws or completes exceptionally:
 | Verdict | Means |
 | --- | --- |
 | `Passed` | every condition held |
-| `Failed(path, condition, parts, reason)` | the first condition that did not hold, with the parts of the place it was about; a failed `any` or `not` reports itself without a reason, with the parts its conditions were about |
+| `Failed(path, condition, parts, reason)` | the first condition that did not hold, with the parts of the place it was about; a failed `not` reports the condition inside it that held, with the reason it held for, and a failed `any` reports itself without a reason |
 | `Broken(path, condition, error)` | a type threw, or the place cannot be bound since something it names was removed |
 
 `failed.key()` gives the key of the reason's texts, and `failed.reason().get().values()` its placeholder values. Without a reason, show the place's own text, such as a command's `denied`.

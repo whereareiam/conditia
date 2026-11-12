@@ -44,8 +44,21 @@ final class Chat {
 		record Settings(List<String> nodes) {
 		}
 
+		record Missing(List<String> nodes) implements Reason {
+		}
+
+		record Held(List<String> nodes) implements Reason {
+			public @NotNull Map<String, String> values() {
+				return Map.of("nodes", String.join(", ", nodes));
+			}
+		}
+
 		public @NotNull String name() {
 			return "permission";
+		}
+
+		public @NotNull Set<Class<? extends Reason>> reasons() {
+			return Set.of(Missing.class, Held.class);
 		}
 
 		public @NotNull Class<Player> subject() {
@@ -57,7 +70,9 @@ final class Chat {
 		}
 
 		public @NotNull Outcome holds(@NotNull Player player, @NotNull Settings settings) {
-			return Outcome.when(player.permissions().containsAll(settings.nodes()));
+			return player.permissions().containsAll(settings.nodes())
+					? Outcome.pass(new Held(settings.nodes()))
+					: Outcome.fail(new Missing(settings.nodes()));
 		}
 	}
 
@@ -120,6 +135,9 @@ final class Chat {
 			}
 		}
 
+		record Owned(List<String> products) implements Reason {
+		}
+
 		public @NotNull String name() {
 			return "owns";
 		}
@@ -133,13 +151,13 @@ final class Chat {
 		}
 
 		public @NotNull Set<Class<? extends Reason>> reasons() {
-			return Set.of(MissingProducts.class);
+			return Set.of(MissingProducts.class, Owned.class);
 		}
 
 		public @NotNull CompletionStage<Outcome> holds(@NotNull Player player, @NotNull Settings settings) {
 			List<String> missing = settings.products().stream().filter(product -> !player.products().contains(product)).toList();
 
-			return (missing.isEmpty() ? Outcome.pass() : Outcome.fail(new MissingProducts(missing))).completed();
+			return (missing.isEmpty() ? Outcome.pass(new Owned(settings.products())) : Outcome.fail(new MissingProducts(missing))).completed();
 		}
 	}
 

@@ -10,6 +10,10 @@ import java.util.concurrent.CompletionStage;
 
 /**
  * Whether a condition holds, as its type tells it: {@link #pass()}, {@link #fail()} or {@link #fail(Reason)}.
+ *
+ * <p>A reason says what the type found. On a failure it tells why the condition does not hold; on a pass, given with
+ * {@link #pass(Reason)}, it tells why it does, which is what a {@code not} around the condition reports when it fails:
+ * {@code not: { world: nether }} fails with the reason {@code world} passed with, such as {@code Inside(nether)}.</p>
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Outcome {
@@ -26,6 +30,16 @@ public final class Outcome {
 	 */
 	public static @NotNull Outcome pass() {
 		return PASS;
+	}
+
+	/**
+	 * The condition holds, for a reason a {@code not} around it reports.
+	 *
+	 * @param reason the reason, one the type lists in its {@code reasons()}
+	 * @return the outcome
+	 */
+	public static @NotNull Outcome pass(@NotNull Reason reason) {
+		return new Outcome(true, reason);
 	}
 
 	/**
@@ -67,9 +81,9 @@ public final class Outcome {
 	}
 
 	/**
-	 * Why the condition failed.
+	 * Why the condition failed, or why it held.
 	 *
-	 * @return the reason, empty when it passed or failed without one
+	 * @return the reason, empty when the type gave none
 	 */
 	public @NotNull Optional<Reason> reason() {
 		return Optional.ofNullable(reason);

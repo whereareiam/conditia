@@ -70,9 +70,10 @@ public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionT
 	}
 
 	/**
-	 * The reasons this type may fail with, so a host can check at startup that each has a text in every language.
+	 * The reasons this type may fail or pass with, so a host can check at startup that each has a text in every
+	 * language.
 	 *
-	 * @return the reason classes, empty when the type fails without a reason
+	 * @return the reason classes, empty when the type gives no reason
 	 * @see Reason#key(String, Class)
 	 */
 	default @NotNull Set<Class<? extends Reason>> reasons() {
