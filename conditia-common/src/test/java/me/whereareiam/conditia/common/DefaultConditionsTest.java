@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,6 +22,7 @@ import java.util.concurrent.CompletionStage;
 
 import static me.whereareiam.conditia.testing.TestRequirements.yaml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +46,7 @@ class DefaultConditionsTest {
 		conditions.register(new Chat.Owns());
 		conditions.register(new Chat.Broken());
 		conditions.register(new Chat.Faulty());
+		conditions.register(new Chat.Closed());
 	}
 
 	@Test
@@ -181,13 +184,37 @@ class DefaultConditionsTest {
 	}
 
 	@Test
-	void namedList_ReportsTheReferenceWithTheReasonInside_AndFollowsTheBlock() {
+	void namedList_ReportsTheConditionInsideThatFailed_AndFollowsTheBlock() {
 		conditions.name("customer", yaml("- owns: vip"));
 
 		Verdict verdict = check("- recipient: [audience: customer]");
 
-		Verdict.Failed failed = assertFailed("chat.requires[0].recipient[0].audience", "audience customer", verdict);
-		assertTrue(failed.reason().isPresent());
+		Verdict.Failed failed = assertFailed("chat.requires[0].recipient[0].audience[0].owns", "owns", verdict);
+		assertEquals(Optional.of("owns.missing-products"), failed.key());
+		assertEquals(List.of(Chat.RECIPIENT), failed.parts());
+	}
+
+	@Test
+	void failed_NamesThePartsTheConditionWasAbout() {
+		Verdict.Failed single = assertFailed("chat.requires[0].recipient[0].permission", "permission", check("- recipient: [permission: chat.global]"));
+		Verdict.Failed pair = assertFailed("chat.requires[0].nearby", "nearby", check("- nearby: 10"));
+		Verdict.Failed plain = assertFailed("chat.requires[0].closed", "closed", check("- closed:"));
+
+		assertTrue(single.about(Chat.RECIPIENT));
+		assertFalse(single.about(Chat.SENDER));
+		assertEquals(List.of(Chat.SENDER, Chat.RECIPIENT), pair.parts());
+		assertEquals(List.of(), plain.parts());
+	}
+
+	@Test
+	void failedAny_NamesThePartsOfItsConditions() {
+		Verdict verdict = check("""
+				- any:
+				    - recipient: [permission: chat.admin]
+				    - closed:
+				""");
+
+		assertEquals(List.of(Chat.RECIPIENT), assertFailed("chat.requires[0].any", "any", verdict).parts());
 	}
 
 	@Test
