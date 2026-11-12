@@ -1,7 +1,9 @@
 package me.whereareiam.conditia.result;
 
+import me.whereareiam.conditia.model.Part;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -26,14 +28,36 @@ public sealed interface Verdict permits Verdict.Passed, Verdict.Failed, Verdict.
 
 	/**
 	 * A condition did not hold. A failed {@code any} and a failed {@code not} report themselves, without a reason; a
-	 * failed named list reports its reference with the reason of the condition in it that failed.
+	 * failed named list reports the condition in it that failed, at a path that runs through the reference.
+	 *
+	 * <p>The parts tell a host whose wording to show, such as the sender's or the recipient's: those of the place the
+	 * condition was about, or, for an {@code any} or a {@code not}, those its conditions were about.</p>
 	 *
 	 * @param path      the condition's path, such as {@code commands.clear.requires[1].target[0].not}
-	 * @param condition what the condition's line names: a type ({@code permission}), {@code any}, {@code not}, or a
-	 *                  named list's word and name ({@code audience moderator})
+	 * @param condition what the condition's line names: a type ({@code permission}, {@code shop:owns}), {@code any}
+	 *                  or {@code not}
+	 * @param parts     the parts of the place the condition was about, in the place's order; empty for a condition
+	 *                  about no part
 	 * @param reason    why it failed, when its type said
 	 */
-	record Failed(@NotNull String path, @NotNull String condition, @NotNull Optional<Reason> reason) implements Verdict {
+	record Failed(@NotNull String path, @NotNull String condition, @NotNull List<Part<?>> parts, @NotNull Optional<Reason> reason) implements Verdict {
+		/**
+		 * Creates a verdict of a failed condition.
+		 */
+		public Failed {
+			parts = List.copyOf(parts);
+		}
+
+		/**
+		 * Whether the condition was about a part, so a host can choose that part's wording.
+		 *
+		 * @param part a part of the place
+		 * @return whether the condition was about it
+		 */
+		public boolean about(@NotNull Part<?> part) {
+			return parts.contains(part);
+		}
+
 		/**
 		 * The key of the reason's texts.
 		 *

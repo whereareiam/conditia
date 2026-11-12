@@ -89,10 +89,35 @@ public final class Binder {
 		String at = path + "." + key;
 
 		return switch (key) {
-			case "any" -> new Check.Any(at, items(list(at, entry.getValue(), focus, scope)));
-			case "not" -> new Check.Not(at, list(at, entry.getValue(), focus, scope));
+			case "any" -> {
+				List<Check> checks = items(list(at, entry.getValue(), focus, scope));
+
+				yield new Check.Any(at, about(checks, scope), checks);
+			}
+			case "not" -> {
+				Check check = list(at, entry.getValue(), focus, scope);
+
+				yield new Check.Not(at, about(List.of(check), scope), check);
+			}
 			default -> named(at, key, entry.getValue(), focus, scope);
 		};
+	}
+
+	// The parts the conditions under an `any` or a `not` are about, in the place's order.
+	private static List<Part<?>> about(List<Check> checks, Scope scope) {
+		Set<Part<?>> parts = new HashSet<>();
+		checks.forEach(check -> collect(check, parts));
+
+		return scope.parts().stream().filter(parts::contains).toList();
+	}
+
+	private static void collect(Check check, Set<Part<?>> parts) {
+		switch (check) {
+			case Check.All all -> all.checks().forEach(each -> collect(each, parts));
+			case Check.Any any -> parts.addAll(any.parts());
+			case Check.Not not -> parts.addAll(not.parts());
+			case Check.Test test -> parts.addAll(test.parts());
+		}
 	}
 
 	private static List<Check> items(Check check) {
@@ -118,7 +143,7 @@ public final class Binder {
 		if (list == null) throw new ConditionException(path, "no " + key + " is named `" + name + "`");
 		if (focus.lists().contains(name)) throw new ConditionException(path, "the " + key + " `" + name + "` refers to itself");
 
-		return new Check.Named(path, key + " " + name, list(path, list.getConditions(), focus.enter(name), scope));
+		return list(path, list.getConditions(), focus.enter(name), scope);
 	}
 
 	private record Scope(List<Part<?>> parts, PartChoice choice, Timing timing) {

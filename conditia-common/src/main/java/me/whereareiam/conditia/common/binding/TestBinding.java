@@ -26,24 +26,38 @@ final class TestBinding {
 		Written written = type.settings() == NoSettings.class ? partsOnly(path, value) : written(path, value);
 		S settings = settings(path, type, written.settings());
 
-		Check.Run run = switch (type) {
+		return switch (type) {
 			case ConditionType.Plain<S> plain -> {
 				noParts(path, name, written);
 
-				yield (Check.Immediate) situation -> plain.holds(settings);
+				yield new Check.Test(path, name, List.of(), (Check.Immediate) situation -> plain.holds(settings));
 			}
-			case ConditionType.Single<?, S> single -> single(single, settings, choice.single(path, single.subject(), written.of(), focus));
-			case ConditionType.Pair<?, ?, S> pair -> pair(pair, settings, choice.pair(path, pair.first(), pair.second(), written.of(), focus));
+			case ConditionType.Single<?, S> single -> {
+				Part<?> part = choice.single(path, single.subject(), written.of(), focus);
+
+				yield new Check.Test(path, name, List.of(part), single(single, settings, part));
+			}
+			case ConditionType.Pair<?, ?, S> pair -> {
+				List<Part<?>> parts = choice.pair(path, pair.first(), pair.second(), written.of(), focus);
+
+				yield new Check.Test(path, name, parts, pair(pair, settings, parts));
+			}
 			case ConditionType.Deferred.Plain<S> plain -> {
 				noParts(path, name, written);
 
-				yield (Check.Deferred) situation -> plain.holds(settings);
+				yield new Check.Test(path, name, List.of(), (Check.Deferred) situation -> plain.holds(settings));
 			}
-			case ConditionType.Deferred.Single<?, S> single -> single(single, settings, choice.single(path, single.subject(), written.of(), focus));
-			case ConditionType.Deferred.Pair<?, ?, S> pair -> pair(pair, settings, choice.pair(path, pair.first(), pair.second(), written.of(), focus));
-		};
+			case ConditionType.Deferred.Single<?, S> single -> {
+				Part<?> part = choice.single(path, single.subject(), written.of(), focus);
 
-		return new Check.Test(path, name, run);
+				yield new Check.Test(path, name, List.of(part), single(single, settings, part));
+			}
+			case ConditionType.Deferred.Pair<?, ?, S> pair -> {
+				List<Part<?>> parts = choice.pair(path, pair.first(), pair.second(), written.of(), focus);
+
+				yield new Check.Test(path, name, parts, pair(pair, settings, parts));
+			}
+		};
 	}
 
 	private static void noParts(String path, String name, Written written) {

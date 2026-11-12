@@ -1,5 +1,6 @@
 package me.whereareiam.conditia.common.binding;
 
+import me.whereareiam.conditia.model.Part;
 import me.whereareiam.conditia.model.Situation;
 import me.whereareiam.conditia.result.Outcome;
 import org.jetbrains.annotations.NotNull;
@@ -10,7 +11,7 @@ import java.util.concurrent.CompletionStage;
 /**
  * Requirements bound to a place: which types run, with which settings and parts, combined as the config says.
  */
-public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Named, Check.Test {
+public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Test {
 	/**
 	 * Holds when every check holds; a list in a config, or a participant block.
 	 *
@@ -23,28 +24,20 @@ public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Nam
 	 * Holds when one of the checks holds.
 	 *
 	 * @param path   the {@code any}'s path
+	 * @param parts  the parts its conditions are about, in the place's order
 	 * @param checks the checks in order
 	 */
-	record Any(@NotNull String path, @NotNull List<Check> checks) implements Check {
+	record Any(@NotNull String path, @NotNull List<Part<?>> parts, @NotNull List<Check> checks) implements Check {
 	}
 
 	/**
 	 * Holds when the check does not.
 	 *
 	 * @param path  the {@code not}'s path
+	 * @param parts the parts its conditions are about, in the place's order
 	 * @param check the check
 	 */
-	record Not(@NotNull String path, @NotNull Check check) implements Check {
-	}
-
-	/**
-	 * A named list, bound for this place.
-	 *
-	 * @param path      the reference's path
-	 * @param condition the host's word and the list's name
-	 * @param check     the list's conditions
-	 */
-	record Named(@NotNull String path, @NotNull String condition, @NotNull Check check) implements Check {
+	record Not(@NotNull String path, @NotNull List<Part<?>> parts, @NotNull Check check) implements Check {
 	}
 
 	/**
@@ -52,9 +45,10 @@ public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Nam
 	 *
 	 * @param path      the condition's path
 	 * @param condition the type's name as configs use it
+	 * @param parts     the parts the condition is about, in the order the type takes them
 	 * @param run       runs the type on a situation
 	 */
-	record Test(@NotNull String path, @NotNull String condition, @NotNull Run run) implements Check {
+	record Test(@NotNull String path, @NotNull String condition, @NotNull List<Part<?>> parts, @NotNull Run run) implements Check {
 	}
 
 	/**

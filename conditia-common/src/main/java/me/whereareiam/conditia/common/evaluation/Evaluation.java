@@ -46,10 +46,9 @@ public final class Evaluation {
 					if (!(verdict instanceof Verdict.Failed)) yield verdict;
 				}
 
-				yield new Verdict.Failed(any.path(), "any", Optional.empty());
+				yield new Verdict.Failed(any.path(), "any", any.parts(), Optional.empty());
 			}
 			case Check.Not not -> negate(not, now(not.check(), situation));
-			case Check.Named named -> name(named, now(named.check(), situation));
 			case Check.Test test -> switch (test.run()) {
 				case Check.Immediate immediate -> immediate(test, immediate, situation);
 				case Check.Deferred ignored -> new Verdict.Broken(test.path(), test.condition(),
@@ -70,7 +69,6 @@ public final class Evaluation {
 			case Check.All all -> all(all.checks(), 0, situation);
 			case Check.Any any -> any(any, 0, situation);
 			case Check.Not not -> later(not.check(), situation).thenApply(verdict -> negate(not, verdict));
-			case Check.Named named -> later(named.check(), situation).thenApply(verdict -> name(named, verdict));
 			case Check.Test test -> switch (test.run()) {
 				case Check.Immediate immediate -> CompletableFuture.completedStage(immediate(test, immediate, situation));
 				case Check.Deferred deferred -> deferred(test, deferred, situation);
@@ -87,7 +85,7 @@ public final class Evaluation {
 
 	private static CompletionStage<Verdict> any(Check.Any any, int index, Situation situation) {
 		if (index == any.checks().size())
-			return CompletableFuture.completedStage(new Verdict.Failed(any.path(), "any", Optional.empty()));
+			return CompletableFuture.completedStage(new Verdict.Failed(any.path(), "any", any.parts(), Optional.empty()));
 
 		return later(any.checks().get(index), situation).thenCompose(verdict -> switch (verdict) {
 			case Verdict.Failed ignored -> any(any, index + 1, situation);
@@ -97,16 +95,9 @@ public final class Evaluation {
 
 	private static Verdict negate(Check.Not not, Verdict verdict) {
 		return switch (verdict) {
-			case Verdict.Passed ignored -> new Verdict.Failed(not.path(), "not", Optional.empty());
+			case Verdict.Passed ignored -> new Verdict.Failed(not.path(), "not", not.parts(), Optional.empty());
 			case Verdict.Failed ignored -> PASSED;
 			case Verdict.Broken broken -> broken;
-		};
-	}
-
-	private static Verdict name(Check.Named named, Verdict verdict) {
-		return switch (verdict) {
-			case Verdict.Failed failed -> new Verdict.Failed(named.path(), named.condition(), failed.reason());
-			default -> verdict;
 		};
 	}
 
@@ -138,7 +129,7 @@ public final class Evaluation {
 	private static Verdict verdict(Check.Test test, Outcome outcome) {
 		if (outcome == null) return new Verdict.Broken(test.path(), test.condition(), new NullPointerException("The type answered without an outcome"));
 
-		return outcome.passed() ? PASSED : new Verdict.Failed(test.path(), test.condition(), outcome.reason());
+		return outcome.passed() ? PASSED : new Verdict.Failed(test.path(), test.condition(), test.parts(), outcome.reason());
 	}
 
 	private static Throwable unwrap(Throwable error) {

@@ -23,10 +23,19 @@ A check gives a sealed `Verdict` and never throws or completes exceptionally:
 | Verdict | Means |
 | --- | --- |
 | `Passed` | every condition held |
-| `Failed(path, condition, reason)` | the first condition that did not hold; a failed `any` or `not` reports itself without a reason |
+| `Failed(path, condition, parts, reason)` | the first condition that did not hold, with the parts of the place it was about; a failed `any` or `not` reports itself without a reason, with the parts its conditions were about |
 | `Broken(path, condition, error)` | a type threw, or the place cannot be bound since something it names was removed |
 
 `failed.key()` gives the key of the reason's texts, and `failed.reason().get().values()` its placeholder values. Without a reason, show the place's own text, such as a command's `denied`.
+
+`failed.about(part)` tells whose wording to show where a place has several participants:
+
+```java
+if (verdict instanceof Verdict.Failed failed) {
+    Map<String, String> wording = failed.about(Chat.RECIPIENT) ? texts.recipient() : texts.sender();
+    deny(sender, failed.key().map(wording::get).orElse(texts.denied()), failed);
+}
+```
 
 ## Named lists
 
@@ -47,7 +56,7 @@ requires:
       - not: { audience: moderator }      # asked of the target
 ```
 
-A failed named list reports its reference (`audience moderator`) with the reason of the condition inside that failed. `name` replaces a list of the same name, and `forget` removes one, so a host can reload its file of lists.
+A failed named list reports the condition inside it that failed, with its own reason and key, at a path that runs through the reference (`commands.ban.requires[0].audience[1].permission`). `name` replaces a list of the same name, and `forget` removes one, so a host can reload its file of lists.
 
 ## Scopes
 

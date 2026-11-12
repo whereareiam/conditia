@@ -183,4 +183,19 @@ final class Chat {
 			throw new IllegalStateException("thrown at once");
 		}
 	}
+
+	// About no part: the chat is closed for everyone.
+	static final class Closed implements ConditionType.Plain<NoSettings> {
+		public @NotNull String name() {
+			return "closed";
+		}
+
+		public @NotNull Class<NoSettings> settings() {
+			return NoSettings.class;
+		}
+
+		public @NotNull Outcome holds(@NotNull NoSettings settings) {
+			return Outcome.fail();
+		}
+	}
 }
