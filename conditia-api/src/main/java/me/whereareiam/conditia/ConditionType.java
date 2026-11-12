@@ -19,6 +19,10 @@ import java.util.concurrent.CompletionStage;
  *   <li>{@link Pair}: about two parts, such as {@code nearby} for a sender and a recipient.</li>
  * </ul>
  *
+ * <p>These shapes answer at once, from what the host holds in memory, and every place accepts them. A type that has
+ * to ask a service first implements the same shape under {@link Deferred}; only a {@link DeferredPlace} accepts it,
+ * never a {@link Place}.</p>
+ *
  * <p>Conditia decides at binding which parts a condition is about, so a type's code gets them as plain typed
  * parameters:</p>
  *
@@ -30,15 +34,15 @@ import java.util.concurrent.CompletionStage;
  *     public Class<Player> subject() { return Player.class; }
  *     public Class<Settings> settings() { return Settings.class; }
  *
- *     public CompletionStage<Outcome> holds(Player player, Settings settings) {
- *         return Outcome.when(settings.nodes().stream().allMatch(player::hasPermission)).completed();
+ *     public Outcome holds(Player player, Settings settings) {
+ *         return Outcome.when(settings.nodes().stream().allMatch(player::hasPermission));
  *     }
  * }
  * }</pre>
  *
  * @param <S> the settings a condition of this type is written with, usually a record
  */
-public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionType.Single, ConditionType.Pair {
+public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionType.Single, ConditionType.Pair, ConditionType.Deferred {
 	/**
 	 * The name configs use for this type, in lower case with dashes, such as {@code channel-type}. A type registered
 	 * through an owner's scope is known as {@code <owner>:<name>}.
@@ -76,7 +80,7 @@ public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionT
 	}
 
 	/**
-	 * A type about no part of a place.
+	 * A type about no part of a place, answering at once.
 	 *
 	 * @param <S> the settings
 	 */
@@ -85,13 +89,13 @@ public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionT
 		 * Tells whether the condition holds now.
 		 *
 		 * @param settings the condition's settings
-		 * @return a stage that completes with the outcome; completing exceptionally makes the check broken
+		 * @return the outcome; throwing makes the check broken
 		 */
-		@NotNull CompletionStage<Outcome> holds(@NotNull S settings);
+		@NotNull Outcome holds(@NotNull S settings);
 	}
 
 	/**
-	 * A type about one part of a place, such as a player or an interaction.
+	 * A type about one part of a place, such as a player or an interaction, answering at once.
 	 *
 	 * @param <T> the type of the part
 	 * @param <S> the settings
@@ -109,13 +113,13 @@ public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionT
 		 *
 		 * @param subject  the part's value in the situation being checked
 		 * @param settings the condition's settings
-		 * @return a stage that completes with the outcome; completing exceptionally makes the check broken
+		 * @return the outcome; throwing makes the check broken
 		 */
-		@NotNull CompletionStage<Outcome> holds(@NotNull T subject, @NotNull S settings);
+		@NotNull Outcome holds(@NotNull T subject, @NotNull S settings);
 	}
 
 	/**
-	 * A type about two parts of a place, such as a sender and a recipient.
+	 * A type about two parts of a place, such as a sender and a recipient, answering at once.
 	 *
 	 * @param <A> the type of the first part
 	 * @param <B> the type of the second part
@@ -142,8 +146,88 @@ public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionT
 		 * @param first    the first part's value
 		 * @param second   the second part's value
 		 * @param settings the condition's settings
-		 * @return a stage that completes with the outcome; completing exceptionally makes the check broken
+		 * @return the outcome; throwing makes the check broken
 		 */
-		@NotNull CompletionStage<Outcome> holds(@NotNull A first, @NotNull B second, @NotNull S settings);
+		@NotNull Outcome holds(@NotNull A first, @NotNull B second, @NotNull S settings);
+	}
+
+	/**
+	 * A type that answers later, because it asks a service such as a database or another server. Its conditions
+	 * bind only to a {@link DeferredPlace}; a {@link Place} that names one cannot be bound.
+	 *
+	 * @param <S> the settings
+	 */
+	sealed interface Deferred<S> extends ConditionType<S> permits Deferred.Plain, Deferred.Single, Deferred.Pair {
+		/**
+		 * A type about no part of a place, answering later.
+		 *
+		 * @param <S> the settings
+		 */
+		non-sealed interface Plain<S> extends Deferred<S> {
+			/**
+			 * Tells whether the condition holds now.
+			 *
+			 * @param settings the condition's settings
+			 * @return a stage that completes with the outcome; completing exceptionally makes the check broken
+			 */
+			@NotNull CompletionStage<Outcome> holds(@NotNull S settings);
+		}
+
+		/**
+		 * A type about one part of a place, answering later.
+		 *
+		 * @param <T> the type of the part
+		 * @param <S> the settings
+		 */
+		non-sealed interface Single<T, S> extends Deferred<S> {
+			/**
+			 * The class of the part this type is about; a part fits when its type is this class or a subtype.
+			 *
+			 * @return the subject class
+			 */
+			@NotNull Class<T> subject();
+
+			/**
+			 * Tells whether the condition holds for the subject.
+			 *
+			 * @param subject  the part's value in the situation being checked
+			 * @param settings the condition's settings
+			 * @return a stage that completes with the outcome; completing exceptionally makes the check broken
+			 */
+			@NotNull CompletionStage<Outcome> holds(@NotNull T subject, @NotNull S settings);
+		}
+
+		/**
+		 * A type about two parts of a place, answering later.
+		 *
+		 * @param <A> the type of the first part
+		 * @param <B> the type of the second part
+		 * @param <S> the settings
+		 */
+		non-sealed interface Pair<A, B, S> extends Deferred<S> {
+			/**
+			 * The class of the first part.
+			 *
+			 * @return the first part's class
+			 */
+			@NotNull Class<A> first();
+
+			/**
+			 * The class of the second part.
+			 *
+			 * @return the second part's class
+			 */
+			@NotNull Class<B> second();
+
+			/**
+			 * Tells whether the condition holds for the two parts.
+			 *
+			 * @param first    the first part's value
+			 * @param second   the second part's value
+			 * @param settings the condition's settings
+			 * @return a stage that completes with the outcome; completing exceptionally makes the check broken
+			 */
+			@NotNull CompletionStage<Outcome> holds(@NotNull A first, @NotNull B second, @NotNull S settings);
+		}
 	}
 }

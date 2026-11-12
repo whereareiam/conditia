@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Clock;
 import java.time.LocalTime;
-import java.util.concurrent.CompletionStage;
 
 /**
  * {@code time: { from: "08:00", to: "22:00" }}: holds from {@code from} until before {@code to} each day, in the
@@ -28,14 +27,14 @@ public final class TimeCondition implements ConditionType.Plain<TimeCondition.Se
 	}
 
 	@Override
-	public @NotNull CompletionStage<Outcome> holds(@NotNull Settings settings) {
+	public @NotNull Outcome holds(@NotNull Settings settings) {
 		LocalTime now = LocalTime.now(clock);
 		boolean sameDay = !settings.from().isAfter(settings.to());
 		boolean within = sameDay
 				? !now.isBefore(settings.from()) && now.isBefore(settings.to())
 				: !now.isBefore(settings.from()) || now.isBefore(settings.to());
 
-		return Outcome.when(within).completed();
+		return Outcome.when(within);
 	}
 
 	/**

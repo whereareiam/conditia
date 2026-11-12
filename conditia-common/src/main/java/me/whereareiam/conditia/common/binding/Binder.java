@@ -43,12 +43,13 @@ public final class Binder {
 	 * @param path     the requirements' path
 	 * @param requires the requirements
 	 * @param parts    the place's parts, the main participant first
+	 * @param timing   when the place needs its answer
 	 * @return the bound check
 	 * @throws ConditionException when the requirements cannot be bound
 	 */
-	public @NotNull Check bind(@NotNull String path, @NotNull Requirements requires, @NotNull List<Part<?>> parts) {
+	public @NotNull Check bind(@NotNull String path, @NotNull Requirements requires, @NotNull List<Part<?>> parts, @NotNull Timing timing) {
 		checkParts(path, parts);
-		Scope scope = new Scope(parts, new PartChoice(parts));
+		Scope scope = new Scope(parts, new PartChoice(parts), timing);
 
 		return list(path, requires.getConditions(), Focus.start(), scope);
 	}
@@ -105,7 +106,7 @@ public final class Binder {
 		if (part.isPresent()) return list(path, value, focus.about(part.get()), scope);
 
 		return Optional.ofNullable(snapshot.types().get(key))
-				.map(type -> tests.bind(path, key, type, value, focus, scope.choice()))
+				.map(type -> tests.bind(path, key, type, value, focus, scope.choice(), scope.timing()))
 				.orElseThrow(() -> new ConditionException(path, "no condition type or part is named `" + key + "`"));
 	}
 
@@ -120,6 +121,6 @@ public final class Binder {
 		return new Check.Named(path, key + " " + name, list(path, list.getConditions(), focus.enter(name), scope));
 	}
 
-	private record Scope(List<Part<?>> parts, PartChoice choice) {
+	private record Scope(List<Part<?>> parts, PartChoice choice, Timing timing) {
 	}
 }

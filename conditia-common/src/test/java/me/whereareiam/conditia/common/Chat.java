@@ -56,8 +56,8 @@ final class Chat {
 			return Settings.class;
 		}
 
-		public @NotNull CompletionStage<Outcome> holds(@NotNull Player player, @NotNull Settings settings) {
-			return Outcome.when(player.permissions().containsAll(settings.nodes())).completed();
+		public @NotNull Outcome holds(@NotNull Player player, @NotNull Settings settings) {
+			return Outcome.when(player.permissions().containsAll(settings.nodes()));
 		}
 	}
 
@@ -81,8 +81,8 @@ final class Chat {
 			return Settings.class;
 		}
 
-		public @NotNull CompletionStage<Outcome> holds(@NotNull Player from, @NotNull Player to, @NotNull Settings settings) {
-			return Outcome.when(Math.abs(from.position() - to.position()) <= settings.blocks()).completed();
+		public @NotNull Outcome holds(@NotNull Player from, @NotNull Player to, @NotNull Settings settings) {
+			return Outcome.when(Math.abs(from.position() - to.position()) <= settings.blocks());
 		}
 	}
 
@@ -104,12 +104,13 @@ final class Chat {
 			return NoSettings.class;
 		}
 
-		public @NotNull CompletionStage<Outcome> holds(@NotNull Player first, @NotNull Player second, @NotNull NoSettings settings) {
-			return Outcome.when(first.position() > second.position()).completed();
+		public @NotNull Outcome holds(@NotNull Player first, @NotNull Player second, @NotNull NoSettings settings) {
+			return Outcome.when(first.position() > second.position());
 		}
 	}
 
-	static final class Owns implements ConditionType.Single<Player, Owns.Settings> {
+	// Answers later, as a type asking a shop's store would.
+	static final class Owns implements ConditionType.Deferred.Single<Player, Owns.Settings> {
 		record Settings(List<String> products) {
 		}
 
@@ -142,7 +143,7 @@ final class Chat {
 		}
 	}
 
-	static final class Broken implements ConditionType.Single<Player, Broken.Settings> {
+	static final class Broken implements ConditionType.Deferred.Single<Player, Broken.Settings> {
 		record Settings(boolean late) {
 		}
 
@@ -162,6 +163,24 @@ final class Chat {
 			if (!settings.late()) throw new IllegalStateException("thrown");
 
 			return CompletableFuture.failedStage(new IllegalStateException("completed exceptionally"));
+		}
+	}
+
+	static final class Faulty implements ConditionType.Single<Player, NoSettings> {
+		public @NotNull String name() {
+			return "faulty";
+		}
+
+		public @NotNull Class<Player> subject() {
+			return Player.class;
+		}
+
+		public @NotNull Class<NoSettings> settings() {
+			return NoSettings.class;
+		}
+
+		public @NotNull Outcome holds(@NotNull Player player, @NotNull NoSettings settings) {
+			throw new IllegalStateException("thrown at once");
 		}
 	}
 }

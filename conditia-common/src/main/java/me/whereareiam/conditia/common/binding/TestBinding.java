@@ -19,21 +19,35 @@ import java.util.List;
 final class TestBinding {
 	private final SettingsReader reader;
 
-	<S> Check bind(String path, String name, ConditionType<S> type, Node value, Focus focus, PartChoice choice) {
+	<S> Check bind(String path, String name, ConditionType<S> type, Node value, Focus focus, PartChoice choice, Timing timing) {
+		if (timing == Timing.IMMEDIATE && type instanceof ConditionType.Deferred<S>)
+			throw new ConditionException(path, "`" + name + "` answers later, and this place needs its answer at once");
+
 		Written written = type.settings() == NoSettings.class ? partsOnly(path, value) : written(path, value);
 		S settings = settings(path, type, written.settings());
 
 		Check.Run run = switch (type) {
 			case ConditionType.Plain<S> plain -> {
-				if (!written.of().isEmpty()) throw new ConditionException(path, "`" + name + "` is about no part, so it takes no `of`");
+				noParts(path, name, written);
 
-				yield situation -> plain.holds(settings);
+				yield (Check.Immediate) situation -> plain.holds(settings);
 			}
 			case ConditionType.Single<?, S> single -> single(single, settings, choice.single(path, single.subject(), written.of(), focus));
 			case ConditionType.Pair<?, ?, S> pair -> pair(pair, settings, choice.pair(path, pair.first(), pair.second(), written.of(), focus));
+			case ConditionType.Deferred.Plain<S> plain -> {
+				noParts(path, name, written);
+
+				yield (Check.Deferred) situation -> plain.holds(settings);
+			}
+			case ConditionType.Deferred.Single<?, S> single -> single(single, settings, choice.single(path, single.subject(), written.of(), focus));
+			case ConditionType.Deferred.Pair<?, ?, S> pair -> pair(pair, settings, choice.pair(path, pair.first(), pair.second(), written.of(), focus));
 		};
 
 		return new Check.Test(path, name, run);
+	}
+
+	private static void noParts(String path, String name, Written written) {
+		if (!written.of().isEmpty()) throw new ConditionException(path, "`" + name + "` is about no part, so it takes no `of`");
 	}
 
 	private <S> S settings(String path, ConditionType<S> type, Node value) {
@@ -47,11 +61,23 @@ final class TestBinding {
 	}
 
 	private static <T, S> Check.Run single(ConditionType.Single<T, S> type, S settings, Part<?> part) {
-		return situation -> type.holds(type.subject().cast(situation.get(part)), settings);
+		return (Check.Immediate) situation -> type.holds(type.subject().cast(situation.get(part)), settings);
 	}
 
 	private static <A, B, S> Check.Run pair(ConditionType.Pair<A, B, S> type, S settings, List<Part<?>> parts) {
-		return situation -> type.holds(
+		return (Check.Immediate) situation -> type.holds(
+				type.first().cast(situation.get(parts.get(0))),
+				type.second().cast(situation.get(parts.get(1))),
+				settings
+		);
+	}
+
+	private static <T, S> Check.Run single(ConditionType.Deferred.Single<T, S> type, S settings, Part<?> part) {
+		return (Check.Deferred) situation -> type.holds(type.subject().cast(situation.get(part)), settings);
+	}
+
+	private static <A, B, S> Check.Run pair(ConditionType.Deferred.Pair<A, B, S> type, S settings, List<Part<?>> parts) {
+		return (Check.Deferred) situation -> type.holds(
 				type.first().cast(situation.get(parts.get(0))),
 				type.second().cast(situation.get(parts.get(1))),
 				settings

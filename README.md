@@ -23,8 +23,8 @@ public final class PermissionCondition implements ConditionType.Single<Player, P
     public Class<Player> subject() { return Player.class; }
     public Class<Settings> settings() { return Settings.class; }
 
-    public CompletionStage<Outcome> holds(Player player, Settings settings) {
-        return Outcome.when(settings.nodes().stream().allMatch(player::hasPermission)).completed();
+    public Outcome holds(Player player, Settings settings) {
+        return Outcome.when(settings.nodes().stream().allMatch(player::hasPermission));
     }
 }
 ```
@@ -41,9 +41,10 @@ Conditions conditions = new DefaultConditions(ConditionsOptions.builder()
 conditions.register(new PermissionCondition());
 
 Place place = conditions.place("channels.global.requires", channel.getRequires(), SENDER, RECIPIENT);
-place.check(Situation.of(SENDER, sender).and(RECIPIENT, recipient))
-        .thenAccept(verdict -> ...);
+Verdict verdict = place.check(Situation.of(SENDER, sender).and(RECIPIENT, recipient));
 ```
+
+A type that has to ask a service implements `ConditionType.Deferred`, and only a `DeferredPlace`, checked with a `CompletionStage`, takes it; a place that needs its answer at once, such as a chat message on a game server's chat thread, refuses it at startup.
 
 ## Documentation
 

@@ -5,13 +5,20 @@ description: Places, verdicts, named lists, scopes, Configura and Chassis.
 
 ## Places and parts
 
-A place is where a host checks one `requires:` list: a command, a button, a chat channel. `conditions.place(path, requires, parts...)` binds the list to the parts the place supplies; the first part is the main participant. Create places after your plugins have registered their types, so a place that names a type nobody registered stops startup.
+A place is where a host checks one `requires:` list: a command, a button, a chat channel. Binding fits the list to the parts the place supplies; the first part is the main participant. Create places after your plugins have registered their types, so a place that names a type nobody registered stops startup.
+
+| Bound with | Check | Takes | For |
+| --- | --- | --- | --- |
+| `conditions.place(path, requires, parts...)` | `Place.check(situation)` returns a `Verdict` on the caller's thread | types that answer at once | a place that may not wait, such as a chat message on a game server |
+| `conditions.deferredPlace(path, requires, parts...)` | `DeferredPlace.check(situation)` completes a `CompletionStage<Verdict>` | types that answer at once and later | a place that may wait, such as a command that asks a database |
+
+An immediate place that names a deferred type, directly or inside a named list, stops startup with the condition's path. If a type is later registered again under the same name answering later, the immediate place denies everyone and is logged, until a type answering at once takes the name again.
 
 A place stays bound until it is closed: after every registration, removal or closed scope Conditia binds all places again. Close the places of a config you reload.
 
 ## Verdicts
 
-A check completes with a sealed `Verdict` and never exceptionally:
+A check gives a sealed `Verdict` and never throws or completes exceptionally:
 
 | Verdict | Means |
 | --- | --- |

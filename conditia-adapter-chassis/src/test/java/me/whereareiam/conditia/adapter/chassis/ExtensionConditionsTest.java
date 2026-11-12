@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -63,8 +62,8 @@ class ExtensionConditionsTest {
 			return NoSettings.class;
 		}
 
-		public @NotNull CompletionStage<Outcome> holds(@NotNull NoSettings settings) {
-			return Outcome.pass().completed();
+		public @NotNull Outcome holds(@NotNull NoSettings settings) {
+			return Outcome.pass();
 		}
 	}
 

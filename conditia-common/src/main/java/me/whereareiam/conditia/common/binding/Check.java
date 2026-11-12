@@ -58,15 +58,35 @@ public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Nam
 	}
 
 	/**
-	 * A type bound to its settings and parts.
+	 * A type bound to its settings and parts: one that answers at once or one that answers later.
+	 */
+	sealed interface Run permits Immediate, Deferred {
+	}
+
+	/**
+	 * Runs the type now, on the caller's thread.
 	 */
 	@FunctionalInterface
-	interface Run {
+	non-sealed interface Immediate extends Run {
 		/**
 		 * Runs the type.
 		 *
 		 * @param situation the values of the place's parts
 		 * @return the type's outcome
+		 */
+		@NotNull Outcome holds(@NotNull Situation situation);
+	}
+
+	/**
+	 * Runs a type that answers later.
+	 */
+	@FunctionalInterface
+	non-sealed interface Deferred extends Run {
+		/**
+		 * Runs the type.
+		 *
+		 * @param situation the values of the place's parts
+		 * @return the type's outcome when it has answered
 		 */
 		@NotNull CompletionStage<Outcome> holds(@NotNull Situation situation);
 	}

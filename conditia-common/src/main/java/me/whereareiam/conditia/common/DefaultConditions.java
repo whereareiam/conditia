@@ -4,6 +4,7 @@ import me.whereareiam.conditia.ConditionScope;
 import me.whereareiam.conditia.ConditionType;
 import me.whereareiam.conditia.Conditions;
 import me.whereareiam.conditia.Place;
+import me.whereareiam.conditia.DeferredPlace;
 import me.whereareiam.conditia.common.binding.Binder;
 import me.whereareiam.conditia.common.place.Places;
 import me.whereareiam.conditia.common.registration.Registrations;
@@ -74,6 +75,11 @@ public final class DefaultConditions implements Conditions {
 		if (!owners.add(owner)) throw new IllegalStateException("The scope of " + owner + " is open already");
 
 		return new OwnerScope(owner, this);
+	}
+
+	@Override
+	public synchronized @NotNull DeferredPlace deferredPlace(@NotNull String path, @NotNull Requirements requires, @NotNull Part<?>... parts) {
+		return places.openDeferred(binder(), path, requires, List.of(parts));
 	}
 
 	@Override
