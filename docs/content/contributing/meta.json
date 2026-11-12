@@ -1,0 +1,9 @@
+{
+  "title": "Contributing",
+  "description": "Work on Conditia itself",
+  "icon": "GitPullRequest",
+  "root": true,
+  "pages": [
+    "index"
+  ]
+}

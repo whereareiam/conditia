@@ -1,0 +1,14 @@
+{
+  "title": "Using Conditia",
+  "description": "Check requirements from config files in a bot, plugin or mod",
+  "icon": "Code",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "writing-conditions",
+    "---Extending---",
+    "condition-types",
+    "hosting"
+  ]
+}
