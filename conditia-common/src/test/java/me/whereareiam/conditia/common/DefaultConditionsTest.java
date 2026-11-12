@@ -8,6 +8,7 @@ import me.whereareiam.conditia.DeferredPlace;
 import me.whereareiam.conditia.common.Chat.Player;
 import me.whereareiam.conditia.exception.ConditionException;
 import me.whereareiam.conditia.model.Situation;
+import me.whereareiam.conditia.model.Wording;
 import me.whereareiam.conditia.result.Outcome;
 import me.whereareiam.conditia.result.Verdict;
 import org.jetbrains.annotations.NotNull;
@@ -38,6 +39,8 @@ class DefaultConditionsTest {
 		conditions = new DefaultConditions(ConditionsOptions.builder()
 				.reader(Chat.SETTINGS)
 				.namedLists(Optional.of("audience"))
+				.wording(Wording.onFailure("denied"))
+				.wording(Wording.onFailure("hint"))
 				.build());
 
 		conditions.register(new Chat.Permission());
@@ -338,6 +341,96 @@ class DefaultConditionsTest {
 		assertTrue(check(place).passed());
 	}
 
+	@Test
+	void wording_OfTheConditionsLine_IsReportedWithItsFailure() {
+		Verdict verdict = check("""
+				- permission: chat.receive
+				  denied: "You may not receive."
+				""");
+
+		assertEquals(Optional.of("You may not receive."), assertFailed("chat.requires[0].permission", "permission", verdict).wording("denied"));
+	}
+
+	@Test
+	void wording_OfTheNearestLineAround_IsReportedForAFailureInside_WordByWord() {
+		Verdict verdict = check("""
+				- recipient:
+				    - permission: chat.receive
+				    - permission: chat.admin
+				      denied: "{recipient} is no admin."
+				  denied: "{recipient} is refused."
+				  hint: "Pick an admin."
+				""");
+
+		Verdict.Failed failed = assertFailed("chat.requires[0].recipient[1].permission", "permission", verdict);
+		assertEquals(Optional.of("{recipient} is no admin."), failed.wording("denied"));
+		assertEquals(Optional.of("Pick an admin."), failed.wording("hint"));
+	}
+
+	@Test
+	void wording_OfAnAny_IsReportedWithItsFailure() {
+		Verdict verdict = check("""
+				- any: [permission: chat.admin, permission: chat.mod]
+				  denied: "Staff only."
+				""");
+
+		assertEquals(Optional.of("Staff only."), assertFailed("chat.requires[0].any", "any", verdict).wording("denied"));
+	}
+
+	@Test
+	void wording_OfAConditionInsideANot_IsNotReportedForTheNotsFailure() {
+		Verdict verdict = check("- not: { permission: chat.global, denied: \"No global.\" }");
+
+		assertEquals(Map.of(), assertFailed("chat.requires[0].not.permission", "permission", verdict).wording());
+	}
+
+	@Test
+	void failure_OfLinesWithoutTexts_HasNoWording() {
+		assertEquals(Map.of(), assertFailed("chat.requires[0].permission", "permission", check("- permission: chat.receive")).wording());
+	}
+
+	@Test
+	void place_ListsTheTextsOfItsLines_ByTheirPaths() {
+		DeferredPlace place = deferred("""
+				- permission: chat.global
+				  denied: "No global."
+				- recipient:
+				    - permission: chat.receive
+				      hint: "Ask for chat.receive."
+				""");
+
+		assertEquals(List.of(Map.entry("chat.requires[0].denied", "No global."), Map.entry("chat.requires[1].recipient[0].hint", "Ask for chat.receive.")),
+				List.copyOf(place.wording().entrySet()));
+	}
+
+	@Test
+	void wording_ThatIsNoText_CannotBeBound() {
+		ConditionException exception = assertThrows(ConditionException.class, () -> deferred("- permission: chat.global\n  denied: [a, b]"));
+
+		assertEquals("chat.requires[0].denied", exception.getPath());
+	}
+
+	@Test
+	void line_WithTwoConditions_CannotBeBound() {
+		ConditionException exception = assertThrows(ConditionException.class, () -> deferred("- permission: chat.global\n  nearby: 10"));
+
+		assertEquals("chat.requires[0]", exception.getPath());
+	}
+
+	@Test
+	void line_WithAWordTheHostDidNotDeclare_CannotBeBound() {
+		ConditionException exception = assertThrows(ConditionException.class, () -> deferred("- permission: chat.global\n  granted: \"Hi.\""));
+
+		assertEquals("chat.requires[0]", exception.getPath());
+	}
+
+	@Test
+	void type_OrPart_NamedLikeAHostsWord_IsRefused() {
+		assertThrows(IllegalArgumentException.class, () -> conditions.register(new Named("denied")));
+		assertThrows(ConditionException.class, () ->
+				conditions.deferredPlace("chat.requires", yaml("[]"), me.whereareiam.conditia.model.Part.of("hint", Player.class)));
+	}
+
 	private Verdict check(String requires) {
 		return check(deferred(requires));
 	}
@@ -382,6 +475,17 @@ class DefaultConditionsTest {
 
 		public @NotNull CompletionStage<Outcome> holds(@NotNull Player player, Chat.Permission.@NotNull Settings settings) {
 			return Outcome.pass().completed();
+		}
+	}
+
+	// A type that holds always, under a chosen name.
+	private record Named(String name) implements ConditionType.Plain<me.whereareiam.conditia.model.NoSettings> {
+		public @NotNull Class<me.whereareiam.conditia.model.NoSettings> settings() {
+			return me.whereareiam.conditia.model.NoSettings.class;
+		}
+
+		public @NotNull Outcome holds(me.whereareiam.conditia.model.@NotNull NoSettings settings) {
+			return Outcome.pass();
 		}
 	}
 }

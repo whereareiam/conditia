@@ -1,6 +1,7 @@
 package me.whereareiam.conditia.common.binding;
 
 import me.whereareiam.conditia.SettingsReader;
+import me.whereareiam.conditia.common.registration.Registrations;
 import me.whereareiam.conditia.common.registration.Registrations.Snapshot;
 import me.whereareiam.conditia.exception.ConditionException;
 import me.whereareiam.conditia.model.Node;
@@ -10,10 +11,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SequencedMap;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Binds requirements to a place's parts with what is registered at one moment. Every problem is a
@@ -22,6 +26,7 @@ import java.util.Set;
 public final class Binder {
 	private final Snapshot snapshot;
 	private final Optional<String> word;
+	private final Set<String> words;
 	private final TestBinding tests;
 
 	/**
@@ -29,11 +34,13 @@ public final class Binder {
 	 *
 	 * @param snapshot what is registered
 	 * @param word     the host's word for named lists, if it uses them
+	 * @param words    the host's words a line may carry a text under
 	 * @param reader   reads conditions' settings
 	 */
-	public Binder(@NotNull Snapshot snapshot, @NotNull Optional<String> word, @NotNull SettingsReader reader) {
+	public Binder(@NotNull Snapshot snapshot, @NotNull Optional<String> word, @NotNull Set<String> words, @NotNull SettingsReader reader) {
 		this.snapshot = snapshot;
 		this.word = word;
+		this.words = words;
 		this.tests = new TestBinding(reader);
 	}
 
@@ -61,7 +68,7 @@ public final class Binder {
 		for (Part<?> part : parts) {
 			String name = part.getName();
 			if (!seen.add(name)) throw new ConditionException(path, "two parts are named `" + name + "`");
-			if (snapshot.types().containsKey(name) || word.filter(name::equals).isPresent() || Set.of("any", "not", "of").contains(name))
+			if (snapshot.types().containsKey(name) || word.filter(name::equals).isPresent() || Registrations.RESERVED.contains(name) || words.contains(name))
 				throw new ConditionException(path, "the part `" + name + "` has the name of a condition");
 		}
 	}
@@ -81,12 +88,36 @@ public final class Binder {
 	}
 
 	private Check condition(String path, Node node, Focus focus, Scope scope) {
-		if (!(node instanceof Node.Mapping mapping) || mapping.entries().size() != 1)
-			throw new ConditionException(path, "a condition is one `name: value` entry");
+		if (!(node instanceof Node.Mapping mapping)) throw new ConditionException(path, "a condition is one `name: value` entry");
 
-		Map.Entry<String, Node> entry = mapping.entries().firstEntry();
+		SequencedMap<String, String> wording = new LinkedHashMap<>();
+		List<Map.Entry<String, Node>> conditions = new ArrayList<>();
+		mapping.entries().forEach((key, value) -> {
+			if (words.contains(key)) wording.put(key, text(path + "." + key, value));
+			else conditions.add(Map.entry(key, value));
+		});
+		if (conditions.size() != 1) throw new ConditionException(path, "a condition is one `name: value` entry" + wordsHint());
+
+		Map.Entry<String, Node> entry = conditions.getFirst();
+		Check check = condition(path + "." + entry.getKey(), entry, focus, scope);
+
+		return wording.isEmpty() ? check : new Check.Worded(path, wording, check);
+	}
+
+	private static String text(String path, Node value) {
+		if (value instanceof Node.Scalar(String text)) return text;
+
+		throw new ConditionException(path, "expected a text");
+	}
+
+	private String wordsHint() {
+		if (words.isEmpty()) return "";
+
+		return ", with texts under " + words.stream().sorted().map(each -> "`" + each + "`").collect(Collectors.joining(", "));
+	}
+
+	private Check condition(String at, Map.Entry<String, Node> entry, Focus focus, Scope scope) {
 		String key = entry.getKey();
-		String at = path + "." + key;
 
 		return switch (key) {
 			case "any" -> {
@@ -115,6 +146,7 @@ public final class Binder {
 		switch (check) {
 			case Check.All all -> all.checks().forEach(each -> collect(each, parts));
 			case Check.Any any -> parts.addAll(any.parts());
+			case Check.Worded worded -> collect(worded.check(), parts);
 			case Check.Not not -> parts.addAll(not.parts());
 			case Check.Test test -> parts.addAll(test.parts());
 		}

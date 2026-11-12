@@ -11,6 +11,7 @@ import me.whereareiam.conditia.result.Verdict;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.SequencedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -30,6 +31,11 @@ final class DefaultDeferredPlace extends BoundPlace implements DeferredPlace {
 	@Override
 	public @NotNull CompletionStage<Verdict> check(@NotNull Situation situation) {
 		return check(situation, check -> Evaluation.later(check, situation), CompletableFuture::completedStage);
+	}
+
+	@Override
+	public @NotNull SequencedMap<String, String> wording() {
+		return super.wording();
 	}
 
 	@Override

@@ -51,6 +51,19 @@ A type that takes no settings reads its value as the parts: `above: [actor, targ
 | `not: {...}` or `not: [...]` | the condition, or the whole list, does not hold; when it fails, players are told why the condition inside held, such as the world they are in |
 | a host's word for named lists, such as `audience: moderator` | the named list holds, about the same parts |
 
+## Texts a host lets a line carry
+
+A host may let a line carry texts beside its condition, under words it names, such as what a player is told when the line denies:
+
+```yaml
+- permission: chat.staff
+  denied: "Only staff can write here."
+- any: [permission: chat.admin, permission: chat.mod]
+  denied: "Only moderators can write here."
+```
+
+A failure inside a block takes the text of the nearest line around it that has one. Which words exist and what their texts may hold is in the host's documentation.
+
 ## Built-in types
 
 | Type | Holds | Example |
@@ -63,5 +76,5 @@ A type that takes no settings reads its value as the parts: `above: [actor, targ
 
 Every problem names the config path, such as `commands.clear.requires[1].target[0].not`:
 
-- at startup: an unknown type, part or named list, settings that cannot be read, a condition no part fits or one where several fit, or a condition that has to wait for a service at a place that needs its answer at once;
+- at startup: an unknown type, part or named list, a line of two conditions, a word's value that is no text, settings that cannot be read, a condition no part fits or one where several fit, or a condition that has to wait for a service at a place that needs its answer at once;
 - later: a condition whose type or named list was removed with its plugin denies everyone and is logged, until the plugin loads again.

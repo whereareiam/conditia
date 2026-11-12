@@ -75,6 +75,7 @@ public final class Evaluation {
 				case Check.Deferred ignored -> new Result.Refused(new Verdict.Broken(test.path(), test.condition(),
 						new IllegalStateException("The type answers later, and the place needs its answer at once")));
 			};
+			case Check.Worded worded -> worded(worded, immediately(worded.check(), situation));
 		};
 	}
 
@@ -87,6 +88,7 @@ public final class Evaluation {
 				case Check.Immediate immediate -> CompletableFuture.completedStage(immediate(test, immediate, situation));
 				case Check.Deferred deferred -> deferred(test, deferred, situation);
 			};
+			case Check.Worded worded -> eventually(worded.check(), situation).thenApply(result -> worded(worded, result));
 		};
 	}
 
@@ -106,6 +108,10 @@ public final class Evaluation {
 		return eventually(checks.get(index), situation).thenCompose(result -> failed(result)
 				? any(any, index + 1, result, situation)
 				: CompletableFuture.completedStage(result));
+	}
+
+	private static Result worded(Check.Worded worded, Result result) {
+		return result instanceof Result.Refused(Verdict.Failed failed) ? new Result.Refused(failed.orWording(worded.wording())) : result;
 	}
 
 	private static Result negate(Check.Not not, Result result) {

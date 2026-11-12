@@ -9,8 +9,11 @@ import me.whereareiam.conditia.model.Requirements;
 import me.whereareiam.conditia.model.Situation;
 import me.whereareiam.conditia.result.Verdict;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.SequencedMap;
 import java.util.function.Function;
 
 /**
@@ -78,6 +81,13 @@ abstract sealed class BoundPlace permits DefaultDeferredPlace, DefaultPlace {
 
 			return known ? Optional.empty() : Optional.of(exception);
 		}
+	}
+
+	SequencedMap<String, String> wording() {
+		return switch (binding) {
+			case Binding.Bound current -> Collections.unmodifiableSequencedMap(Check.wording(current.check()));
+			case Binding.Unbound ignored -> Collections.unmodifiableSequencedMap(new LinkedHashMap<>());
+		};
 	}
 
 	boolean bound() {
