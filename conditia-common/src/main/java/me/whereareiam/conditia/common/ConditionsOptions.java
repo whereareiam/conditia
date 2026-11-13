@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.random.RandomGenerator;
 
 /**
@@ -58,8 +59,9 @@ public final class ConditionsOptions {
 	private final @NotNull Clock clock = Clock.systemDefaultZone();
 
 	/**
-	 * The source of {@code chance}.
+	 * The source of {@code chance}; by default a {@link Random}, which every Java runtime has, unlike the algorithms
+	 * of {@code jdk.random}.
 	 */
 	@Builder.Default
-	private final @NotNull RandomGenerator random = RandomGenerator.getDefault();
+	private final @NotNull RandomGenerator random = new Random();
 }
