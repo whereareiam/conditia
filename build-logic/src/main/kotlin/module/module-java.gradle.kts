@@ -25,6 +25,12 @@ dependencies {
     add("testRuntimeOnly", libs.findLibrary("junit-platform").get())
 }
 
+// Constructors keep their parameters' names, so a host reads the settings records of the built-in types through
+// their constructor also where they were downgraded to an older Java and are plain classes.
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-parameters")
+}
+
 tasks.withType<Javadoc>().configureEach {
     (options as StandardJavadocDocletOptions).addBooleanOption("Xdoclint:none", true)
 }

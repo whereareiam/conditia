@@ -21,7 +21,7 @@ Only a `DeferredPlace`, which waits for its verdict, takes a deferred type. A `P
 
 ## Settings
 
-`settings()` names the class a condition's settings are read into, usually a record nested in the type. A bare value fills its only component; a type whose settings have several names the one a bare value fills with `main()`:
+`settings()` names the class a condition's settings are read into, usually a record nested in the type. Compile it with `-parameters`, so a host whose jar is downgraded to an older Java, where the record becomes a plain class, still reads it through its constructor. A bare value fills its only component; a type whose settings have several names the one a bare value fills with `main()`:
 
 ```java
 public final class CooldownCondition implements ConditionType.Single<Member, CooldownCondition.Settings> {
