@@ -102,6 +102,11 @@ class ConditiaFeatureTest {
 	}
 
 	@Test
+	void bareValue_FillsTheOnlyPropertyOfAPlainClass_AsADowngradedRecordIs() {
+		assertEquals(List.of("chat.global"), settings.read(Nodes.class, node("chat.global"), Optional.empty()).nodes);
+	}
+
+	@Test
 	void plainSettings_TakeTheValueAsItIs() {
 		assertFalse(settings.read(Boolean.class, node("false"), Optional.empty()));
 	}
@@ -119,6 +124,15 @@ class ConditiaFeatureTest {
 	}
 
 	record Cooldown(Duration duration, String group) {
+	}
+
+	// A record as a downgrade to an older Java leaves it: a final class whose one constructor takes its property.
+	static final class Nodes {
+		private final List<String> nodes;
+
+		Nodes(List<String> nodes) {
+			this.nodes = nodes;
+		}
 	}
 
 	static final class Permission implements ConditionType.Single<Player, Permission.Settings> {

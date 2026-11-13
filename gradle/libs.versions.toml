@@ -9,7 +9,7 @@ lombok = "1.18.42"
 
 # general
 annotations = "26.0.1"
-configura = "2.1.0"
+configura = "dev-ff0a18a"
 jackson = "2.20.0"
 chassis = "dev-c97206f"
 snakeyaml = "2.5"
