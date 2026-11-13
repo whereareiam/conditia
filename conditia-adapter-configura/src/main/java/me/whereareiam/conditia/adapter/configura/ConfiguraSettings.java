@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
+import com.fasterxml.jackson.databind.util.ClassUtil;
 import lombok.RequiredArgsConstructor;
 import me.whereareiam.conditia.SettingsReader;
 import me.whereareiam.conditia.model.Node;
@@ -17,8 +18,9 @@ import java.util.Optional;
 
 /**
  * Reads conditions' settings with Configura's mapper, so they take every type Configura reads (durations, times,
- * enums). A bare value fills a record's only component, or the type's {@code main()}, and a single value fills a
- * list ({@code permission: chat.global} for a list of nodes).
+ * enums). A bare value fills the only property of a settings class of the type's own, such as a record, or the
+ * type's {@code main()}, and a single value fills a list ({@code permission: chat.global} for a list of nodes). A
+ * record downgraded to an older Java, a plain class there, is read the same, through its constructor.
  */
 @RequiredArgsConstructor
 public final class ConfiguraSettings implements SettingsReader {
@@ -38,9 +40,14 @@ public final class ConfiguraSettings implements SettingsReader {
 	}
 
 	private Node bare(Class<?> settings, Node value, Optional<String> main) {
-		if (value instanceof Node.Mapping || !settings.isRecord()) return value;
+		if (value instanceof Node.Mapping || plain(settings)) return value;
 
 		return Node.Mapping.of(main.orElseGet(() -> only(settings)), value);
+	}
+
+	// A value of the JDK's own, such as a Boolean, or an enum takes the bare value as it is.
+	private static boolean plain(Class<?> settings) {
+		return settings.isEnum() || settings.isPrimitive() || ClassUtil.isJDKClass(settings);
 	}
 
 	private String only(Class<?> settings) {
