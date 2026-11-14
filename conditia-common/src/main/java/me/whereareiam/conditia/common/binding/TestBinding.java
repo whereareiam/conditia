@@ -4,9 +4,13 @@ import lombok.RequiredArgsConstructor;
 import me.whereareiam.conditia.ConditionType;
 import me.whereareiam.conditia.SettingsReader;
 import me.whereareiam.conditia.exception.ConditionException;
+import me.whereareiam.conditia.model.Line;
 import me.whereareiam.conditia.model.Node;
 import me.whereareiam.conditia.model.NoSettings;
 import me.whereareiam.conditia.model.Part;
+import me.whereareiam.conditia.model.Situation;
+import me.whereareiam.conditia.result.Outcome;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +45,11 @@ final class TestBinding {
 				List<Part<?>> parts = choice.pair(path, pair.first(), pair.second(), written.of(), focus);
 
 				yield new Check.Test(path, name, parts, pair(pair, settings, parts));
+			}
+			case ConditionType.Recording<?, S> recording -> {
+				Part<?> part = choice.single(path, recording.subject(), written.of(), focus);
+
+				yield new Check.Test(path, name, List.of(part), recording(recording, settings, part, Line.of(path)));
 			}
 			case ConditionType.Deferred.Plain<S> plain -> {
 				noParts(path, name, written);
@@ -84,6 +93,20 @@ final class TestBinding {
 				type.second().cast(situation.get(parts.get(1))),
 				settings
 		);
+	}
+
+	private static <T, S> Check.Run recording(ConditionType.Recording<T, S> type, S settings, Part<?> part, Line line) {
+		return new Check.Recording() {
+			@Override
+			public @NotNull Outcome holds(@NotNull Situation situation) {
+				return type.holds(type.subject().cast(situation.get(part)), settings, line);
+			}
+
+			@Override
+			public void record(@NotNull Situation situation) {
+				type.record(type.subject().cast(situation.get(part)), settings, line);
+			}
+		};
 	}
 
 	private static <T, S> Check.Run single(ConditionType.Deferred.Single<T, S> type, S settings, Part<?> part) {

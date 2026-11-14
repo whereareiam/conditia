@@ -32,6 +32,7 @@ class DefaultConditionsTest {
 	private static final Player SENDER = new Player("sender", Set.of("chat.global"), 0);
 	private static final Player RECIPIENT = new Player("recipient", Set.of("chat.receive"), 40);
 
+	private final Chat.Once once = new Chat.Once();
 	private Conditions conditions;
 
 	@BeforeEach
@@ -50,6 +51,7 @@ class DefaultConditionsTest {
 		conditions.register(new Chat.Broken());
 		conditions.register(new Chat.Faulty());
 		conditions.register(new Chat.Closed());
+		conditions.register(once);
 	}
 
 	@Test
@@ -227,6 +229,52 @@ class DefaultConditionsTest {
 				""");
 
 		assertTrue(place.check(Situation.of(Chat.SENDER, customer).and(Chat.RECIPIENT, RECIPIENT)).toCompletableFuture().join().passed());
+	}
+
+	@Test
+	void recording_HoldsUntilThePassedVerdictIsRecorded_KeyedByItsLine() {
+		Place place = place("""
+				- permission: chat.global
+				- once:
+				""");
+
+		Verdict.Passed first = assertInstanceOf(Verdict.Passed.class, check(place));
+		assertEquals(List.of("chat.requires[1].once"), first.recordings().stream().map(Verdict.Recordable::path).toList());
+		assertTrue(check(place).passed());
+
+		first.record();
+
+		assertFailed("chat.requires[1].once", "once", check(place));
+		assertTrue(check(place("- permission: chat.global\n- permission: chat.global\n- once:")).passed());
+	}
+
+	@Test
+	void recording_RecordsNothingWhenALaterLineRefuses_OrInsideANot() {
+		assertFailed("chat.requires[1].permission", "permission", check(place("- once:\n- permission: chat.receive")));
+
+		Verdict.Passed passed = assertInstanceOf(Verdict.Passed.class, check(place("- not: { not: { once: } }\n- not: { closed: }")));
+		assertEquals(List.of(), passed.recordings());
+	}
+
+	@Test
+	void recording_InAnAny_RecordsOnlyTheBranchThatHeld() {
+		Verdict.Passed passed = assertInstanceOf(Verdict.Passed.class, check(place("""
+				- any:
+				    - closed:
+				    - once:
+				    - once:
+				""")));
+
+		assertEquals(List.of("chat.requires[0].any[1].once"), passed.recordings().stream().map(Verdict.Recordable::path).toList());
+	}
+
+	@Test
+	void recording_WorksAtAPlaceThatWaits() {
+		Verdict.Passed passed = assertInstanceOf(Verdict.Passed.class, check("- once:\n- recipient: [once:]"));
+
+		passed.record();
+
+		assertEquals(Set.of("sender@chat.requires[0].once", "recipient@chat.requires[1].recipient[0].once"), once.used);
 	}
 
 	@Test

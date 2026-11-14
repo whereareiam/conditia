@@ -23,9 +23,66 @@ public sealed interface Verdict permits Verdict.Passed, Verdict.Failed, Verdict.
 	}
 
 	/**
-	 * Every condition held.
+	 * Every condition held. When conditions of the {@link me.whereareiam.conditia.ConditionType.Recording Recording}
+	 * shape decided it, the verdict carries what they record, and the host calls {@link #record()} once the action the
+	 * check allowed happened; a host that never does leaves nothing recorded.
+	 *
+	 * <pre>{@code
+	 * if (!(place.check(situation) instanceof Verdict.Passed passed)) return refuse();
+	 * send(message);
+	 * passed.record();
+	 * }</pre>
+	 *
+	 * @param recordings what the deciding conditions record, in the config's order
 	 */
-	record Passed() implements Verdict {
+	record Passed(@NotNull List<Recordable> recordings) implements Verdict {
+		/**
+		 * A verdict that passed and records nothing.
+		 */
+		public Passed() {
+			this(List.of());
+		}
+
+		public Passed {
+			recordings = List.copyOf(recordings);
+		}
+
+		/**
+		 * Records every recording, each once, in order. One that throws does not keep the others from recording; the
+		 * first failure is thrown afterwards, with the later ones suppressed.
+		 *
+		 * @throws RuntimeException the first failure of a recording
+		 */
+		public void record() {
+			RuntimeException failure = null;
+			for (Recordable recording : recordings) {
+				try {
+					recording.record();
+				} catch (RuntimeException thrown) {
+					if (failure == null) failure = thrown;
+					else failure.addSuppressed(thrown);
+				}
+			}
+
+			if (failure != null) throw failure;
+		}
+	}
+
+	/**
+	 * What a condition of the {@link me.whereareiam.conditia.ConditionType.Recording Recording} shape will record
+	 * once the action its check allowed happened.
+	 *
+	 * @param path      the condition's path
+	 * @param condition the type's name as configs use it
+	 * @param action    records it
+	 */
+	record Recordable(@NotNull String path, @NotNull String condition, @NotNull Runnable action) {
+		/**
+		 * Records it.
+		 */
+		public void record() {
+			action.run();
+		}
 	}
 
 	/**

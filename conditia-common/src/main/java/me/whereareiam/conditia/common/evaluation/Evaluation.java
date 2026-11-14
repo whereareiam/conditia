@@ -8,6 +8,7 @@ import me.whereareiam.conditia.result.Outcome;
 import me.whereareiam.conditia.result.Verdict;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +26,7 @@ import java.util.concurrent.CompletionStage;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Evaluation {
 	private static final Verdict PASSED = new Verdict.Passed();
-	private static final Result HELD = new Result.Held(Optional.empty());
+	private static final Result HELD = new Result.Held(Optional.empty(), List.of());
 
 	/**
 	 * Runs a check whose conditions all answer at once.
@@ -53,12 +54,15 @@ public final class Evaluation {
 		return switch (check) {
 			case Check.All all -> {
 				Result last = HELD;
+				List<Verdict.Recordable> recordings = new ArrayList<>();
 				for (Check each : all.checks()) {
 					last = immediately(each, situation);
-					if (last instanceof Result.Refused) yield last;
+					if (!(last instanceof Result.Held held)) yield last;
+
+					recordings.addAll(held.recordings());
 				}
 
-				yield all.checks().size() == 1 ? last : HELD;
+				yield all.checks().size() == 1 ? last : new Result.Held(Optional.empty(), List.copyOf(recordings));
 			}
 			case Check.Any any -> {
 				Result last = HELD;
@@ -72,6 +76,7 @@ public final class Evaluation {
 			case Check.Not not -> negate(not, immediately(not.check(), situation));
 			case Check.Test test -> switch (test.run()) {
 				case Check.Immediate immediate -> immediate(test, immediate, situation);
+				case Check.Recording recording -> recording(test, recording, situation);
 				case Check.Deferred ignored -> new Result.Refused(new Verdict.Broken(test.path(), test.condition(),
 						new IllegalStateException("The type answers later, and the place needs its answer at once")));
 			};
@@ -81,24 +86,35 @@ public final class Evaluation {
 
 	private static CompletionStage<Result> eventually(Check check, Situation situation) {
 		return switch (check) {
-			case Check.All all -> all(all, 0, HELD, situation);
+			case Check.All all -> all(all, 0, HELD, List.of(), situation);
 			case Check.Any any -> any(any, 0, HELD, situation);
 			case Check.Not not -> eventually(not.check(), situation).thenApply(result -> negate(not, result));
 			case Check.Test test -> switch (test.run()) {
 				case Check.Immediate immediate -> CompletableFuture.completedStage(immediate(test, immediate, situation));
+				case Check.Recording recording -> CompletableFuture.completedStage(recording(test, recording, situation));
 				case Check.Deferred deferred -> deferred(test, deferred, situation);
 			};
 			case Check.Worded worded -> eventually(worded.check(), situation).thenApply(result -> worded(worded, result));
 		};
 	}
 
-	private static CompletionStage<Result> all(Check.All all, int index, Result last, Situation situation) {
+	private static CompletionStage<Result> all(Check.All all, int index, Result last, List<Verdict.Recordable> recordings, Situation situation) {
 		List<Check> checks = all.checks();
-		if (index == checks.size()) return CompletableFuture.completedStage(checks.size() == 1 ? last : HELD);
+		if (index == checks.size())
+			return CompletableFuture.completedStage(checks.size() == 1 ? last : new Result.Held(Optional.empty(), recordings));
 
-		return eventually(checks.get(index), situation).thenCompose(result -> result instanceof Result.Refused
-				? CompletableFuture.completedStage(result)
-				: all(all, index + 1, result, situation));
+		return eventually(checks.get(index), situation).thenCompose(result -> result instanceof Result.Held held
+				? all(all, index + 1, result, joined(recordings, held.recordings()), situation)
+				: CompletableFuture.completedStage(result));
+	}
+
+	private static List<Verdict.Recordable> joined(List<Verdict.Recordable> first, List<Verdict.Recordable> second) {
+		if (second.isEmpty()) return first;
+
+		List<Verdict.Recordable> joined = new ArrayList<>(first);
+		joined.addAll(second);
+
+		return List.copyOf(joined);
 	}
 
 	private static CompletionStage<Result> any(Check.Any any, int index, Result last, Situation situation) {
@@ -118,7 +134,8 @@ public final class Evaluation {
 		return switch (result) {
 			case Result.Held held -> new Result.Refused(held.decided()
 					.orElseGet(() -> new Verdict.Failed(not.path(), "not", not.parts(), Optional.empty())));
-			case Result.Refused(Verdict.Failed failed) -> new Result.Held(Optional.of(failed));
+			// What failed inside a not held only by failing, so it records nothing.
+			case Result.Refused(Verdict.Failed failed) -> new Result.Held(Optional.of(failed), List.of());
 			case Result.Refused refused -> refused;
 		};
 	}
@@ -132,6 +149,22 @@ public final class Evaluation {
 		}
 
 		return result(test, outcome);
+	}
+
+	private static Result recording(Check.Test test, Check.Recording run, Situation situation) {
+		Outcome outcome;
+		try {
+			outcome = run.holds(situation);
+		} catch (RuntimeException exception) {
+			return new Result.Refused(new Verdict.Broken(test.path(), test.condition(), exception));
+		}
+
+		Result result = result(test, outcome);
+		if (!(result instanceof Result.Held held)) return result;
+
+		Verdict.Recordable recordable = new Verdict.Recordable(test.path(), test.condition(), () -> run.record(situation));
+
+		return new Result.Held(held.decided(), List.of(recordable));
 	}
 
 	private static CompletionStage<Result> deferred(Check.Test test, Check.Deferred run, Situation situation) {
@@ -154,7 +187,7 @@ public final class Evaluation {
 
 		Verdict.Failed decided = new Verdict.Failed(test.path(), test.condition(), test.parts(), outcome.reason());
 
-		return outcome.passed() ? new Result.Held(Optional.of(decided)) : new Result.Refused(decided);
+		return outcome.passed() ? new Result.Held(Optional.of(decided), List.of()) : new Result.Refused(decided);
 	}
 
 	private static boolean failed(Result result) {
@@ -178,13 +211,14 @@ public final class Evaluation {
 		/**
 		 * The check held.
 		 *
-		 * @param decided what a {@code not} around it reports: the condition that decided it, with the reason its type
-		 *                gave on passing; empty when no single condition decided it
+		 * @param decided    what a {@code not} around it reports: the condition that decided it, with the reason its
+		 *                   type gave on passing; empty when no single condition decided it
+		 * @param recordings what the recording conditions that decided it record, in the config's order
 		 */
-		record Held(Optional<Verdict.Failed> decided) implements Result {
+		record Held(Optional<Verdict.Failed> decided, List<Verdict.Recordable> recordings) implements Result {
 			@Override
 			public Verdict verdict() {
-				return PASSED;
+				return recordings.isEmpty() ? PASSED : new Verdict.Passed(recordings);
 			}
 		}
 
