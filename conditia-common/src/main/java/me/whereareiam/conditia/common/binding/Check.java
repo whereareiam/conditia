@@ -94,7 +94,7 @@ public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Tes
 	/**
 	 * A type bound to its settings and parts: one that answers at once or one that answers later.
 	 */
-	sealed interface Run permits Immediate, Deferred {
+	sealed interface Run permits Immediate, Deferred, Recording {
 	}
 
 	/**
@@ -109,6 +109,26 @@ public sealed interface Check permits Check.All, Check.Any, Check.Not, Check.Tes
 		 * @return the type's outcome
 		 */
 		@NotNull Outcome holds(@NotNull Situation situation);
+	}
+
+	/**
+	 * Runs a type that answers at once and records once the host says the check's action happened.
+	 */
+	non-sealed interface Recording extends Run {
+		/**
+		 * Runs the type.
+		 *
+		 * @param situation the values of the place's parts
+		 * @return the type's outcome
+		 */
+		@NotNull Outcome holds(@NotNull Situation situation);
+
+		/**
+		 * Records for the situation that was checked.
+		 *
+		 * @param situation the values of the place's parts
+		 */
+		void record(@NotNull Situation situation);
 	}
 
 	/**

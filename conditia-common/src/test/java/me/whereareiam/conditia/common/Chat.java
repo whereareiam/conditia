@@ -1,6 +1,7 @@
 package me.whereareiam.conditia.common;
 
 import me.whereareiam.conditia.ConditionType;
+import me.whereareiam.conditia.model.Line;
 import me.whereareiam.conditia.model.NoSettings;
 import me.whereareiam.conditia.model.Part;
 import me.whereareiam.conditia.result.Outcome;
@@ -214,6 +215,31 @@ final class Chat {
 
 		public @NotNull Outcome holds(@NotNull NoSettings settings) {
 			return Outcome.fail();
+		}
+	}
+
+	// Holds until the player used its line once: the use is recorded only when the host records the verdict.
+	static final class Once implements ConditionType.Recording<Player, NoSettings> {
+		final Set<String> used = new java.util.HashSet<>();
+
+		public @NotNull String name() {
+			return "once";
+		}
+
+		public @NotNull Class<Player> subject() {
+			return Player.class;
+		}
+
+		public @NotNull Class<NoSettings> settings() {
+			return NoSettings.class;
+		}
+
+		public @NotNull Outcome holds(@NotNull Player player, @NotNull NoSettings settings, @NotNull Line line) {
+			return Outcome.when(!used.contains(player.name() + "@" + line.getPath()));
+		}
+
+		public void record(@NotNull Player player, @NotNull NoSettings settings, @NotNull Line line) {
+			used.add(player.name() + "@" + line.getPath());
 		}
 	}
 }

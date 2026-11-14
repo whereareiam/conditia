@@ -1,5 +1,6 @@
 package me.whereareiam.conditia;
 
+import me.whereareiam.conditia.model.Line;
 import me.whereareiam.conditia.result.Outcome;
 import me.whereareiam.conditia.result.Reason;
 import org.jetbrains.annotations.NotNull;
@@ -16,7 +17,9 @@ import java.util.concurrent.CompletionStage;
  *   <li>{@link Plain}: about no part, such as {@code time} or {@code chance};</li>
  *   <li>{@link Single}: about one part, such as {@code permission} of a player or {@code channel-type} of an
  *       interaction;</li>
- *   <li>{@link Pair}: about two parts, such as {@code nearby} for a sender and a recipient.</li>
+ *   <li>{@link Pair}: about two parts, such as {@code nearby} for a sender and a recipient;</li>
+ *   <li>{@link Recording}: about one part, holding by what it recorded of that part on its line before, such as a
+ *       {@code cooldown}; it records only when the host says the check's action happened.</li>
  * </ul>
  *
  * <p>These shapes answer at once, from what the host holds in memory, and every place accepts them. A type that has
@@ -42,7 +45,7 @@ import java.util.concurrent.CompletionStage;
  *
  * @param <S> the settings a condition of this type is written with, usually a record
  */
-public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionType.Single, ConditionType.Pair, ConditionType.Deferred {
+public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionType.Single, ConditionType.Pair, ConditionType.Recording, ConditionType.Deferred {
 	/**
 	 * The name configs use for this type, in lower case with dashes, such as {@code channel-type}. A type registered
 	 * through an owner's scope is known as {@code <owner>:<name>}.
@@ -117,6 +120,57 @@ public sealed interface ConditionType<S> permits ConditionType.Plain, ConditionT
 		 * @return the outcome; throwing makes the check broken
 		 */
 		@NotNull Outcome holds(@NotNull T subject, @NotNull S settings);
+	}
+
+	/**
+	 * A type about one part of a place that holds by what it recorded before, such as a {@code cooldown} that holds
+	 * until the line was used too recently. It answers at once, so every place accepts it.
+	 *
+	 * <p>Checking records nothing. When a check passes, its {@link me.whereareiam.conditia.result.Verdict.Passed
+	 * Passed} verdict carries the recordings of the conditions of this shape that decided it, and the host calls
+	 * {@link me.whereareiam.conditia.result.Verdict.Passed#record() record()} once the action the check allowed
+	 * happened, such as a message being sent. A condition that did not decide the check records nothing: one in a
+	 * branch of an {@code any} that was not taken, or one inside a {@code not}, which held only by failing.</p>
+	 *
+	 * <pre>{@code
+	 * public Outcome holds(Player player, Settings settings, Line line) {
+	 *     return Outcome.when(!usedWithin(player, line, settings.duration()));
+	 * }
+	 *
+	 * public void record(Player player, Settings settings, Line line) {
+	 *     uses.put(player, line, clock.instant());
+	 * }
+	 * }</pre>
+	 *
+	 * @param <T> the type of the part
+	 * @param <S> the settings
+	 */
+	non-sealed interface Recording<T, S> extends ConditionType<S> {
+		/**
+		 * The class of the part this type is about; a part fits when its type is this class or a subtype.
+		 *
+		 * @return the subject class
+		 */
+		@NotNull Class<T> subject();
+
+		/**
+		 * Tells whether the condition holds for the subject on its line.
+		 *
+		 * @param subject  the part's value in the situation being checked
+		 * @param settings the condition's settings
+		 * @param line     the line the condition stands on
+		 * @return the outcome; throwing makes the check broken
+		 */
+		@NotNull Outcome holds(@NotNull T subject, @NotNull S settings, @NotNull Line line);
+
+		/**
+		 * Records that the action a passed check allowed happened, for the subject on the condition's line.
+		 *
+		 * @param subject  the part's value in the situation that was checked
+		 * @param settings the condition's settings
+		 * @param line     the line the condition stands on
+		 */
+		void record(@NotNull T subject, @NotNull S settings, @NotNull Line line);
 	}
 
 	/**
