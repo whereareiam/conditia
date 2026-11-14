@@ -3,13 +3,14 @@ title: Condition types
 description: Add a kind of condition that configs can name.
 ---
 
-A condition type is a class implementing one of three shapes, chosen by how many parts of a place it is about:
+A condition type is a class implementing one of these shapes, chosen by how many parts of a place it is about and whether it remembers what happened:
 
 | Shape | About | `holds` | Examples |
 | --- | --- | --- | --- |
 | `ConditionType.Plain<S>` | no part | `holds(S settings)` | `time`, `chance` |
 | `ConditionType.Single<T, S>` | one part | `holds(T subject, S settings)` | `permission`, `role`, `channel-type` |
 | `ConditionType.Pair<A, B, S>` | two parts | `holds(A first, B second, S settings)` | `nearby`, `above` |
+| `ConditionType.Recording<T, S>` | one part, and what it recorded on its line | `holds(T subject, S settings, Line line)`, `record(T subject, S settings, Line line)` | `cooldown`, `daily`, `once` |
 
 Conditia decides at startup which parts a condition is about, so `holds` gets plain typed values and never looks anything up. A part fits when its type is the type's class or a subtype.
 
@@ -18,6 +19,27 @@ Conditia decides at startup which parts a condition is about, so `holds` gets pl
 The shapes above answer at once: `holds` returns an `Outcome` from what the host already holds in memory, and every place takes them. A type that has to ask a service, such as a database or another server, implements the same shape under `ConditionType.Deferred` (`Deferred.Plain`, `Deferred.Single`, `Deferred.Pair`), whose `holds` returns a `CompletionStage<Outcome>`.
 
 Only a `DeferredPlace`, which waits for its verdict, takes a deferred type. A `Place` needs its answer on the thread that asks, such as a chat message on a game server's chat thread, and stops startup with the condition's path when one is named there. Keep a type immediate whenever its owner can hold the answer in memory, such as playtime loaded when a player joins, so every place can use it.
+
+## Recording what happened
+
+A `Recording` type holds by what it recorded before, such as a `cooldown` that holds until its line was used too recently. Checking records nothing: a check that passes carries the recordings of the conditions that decided it, and the host records them once the action the check allowed happened, such as a message being sent. So a cooldown is not used up by a check whose message never went out.
+
+```java
+public final class CooldownCondition implements ConditionType.Recording<Player, CooldownCondition.Settings> {
+    public record Settings(Duration duration) {}
+
+    public Outcome holds(Player player, Settings settings, Line line) {
+        Instant last = uses.get(player, line);
+        return Outcome.when(last == null || last.plus(settings.duration()).isBefore(clock.instant()));
+    }
+
+    public void record(Player player, Settings settings, Line line) {
+        uses.put(player, line, clock.instant());
+    }
+}
+```
+
+`line.getPath()` is the condition's config path, such as `chats.global.requires[1].cooldown`, so two lines of one type keep apart; a setting such as a `key` can share one record between lines. Only the conditions that decided the check record: the one in the branch of an `any` that was taken, never one inside a `not`, which held only by failing, and nothing at all when a later line refuses. A `Recording` type answers at once, so every place takes it.
 
 ## Settings
 
