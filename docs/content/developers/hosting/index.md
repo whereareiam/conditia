@@ -22,7 +22,7 @@ A check gives a sealed `Verdict` and never throws or completes exceptionally:
 
 | Verdict | Means |
 | --- | --- |
-| `Passed` | every condition held |
+| `Passed(recordings)` | every condition held; `passed.record()` records what its `Recording` conditions remember, once the action the check allowed happened |
 | `Failed(path, condition, parts, reason, wording)` | the first condition that did not hold, with the parts of the place it was about and the texts its lines carry under the host's words; a failed `not` reports the condition inside it that held, with the reason it held for, and a failed `any` reports itself without a reason |
 | `Broken(path, condition, error)` | a type threw, or the place cannot be bound since something it names was removed |
 
@@ -35,6 +35,14 @@ if (verdict instanceof Verdict.Failed failed) {
     Map<String, String> wording = failed.about(Chat.RECIPIENT) ? texts.recipient() : texts.sender();
     deny(sender, failed.key().map(wording::get).orElse(texts.denied()), failed);
 }
+```
+
+A place whose lists may name a `Recording` type, such as a `cooldown`, records a passed verdict once its action happened; a host that never records leaves those conditions holding forever:
+
+```java
+if (!(place.check(situation) instanceof Verdict.Passed passed)) return deny(...);
+send(message);
+passed.record();
 ```
 
 ## Texts on lines
